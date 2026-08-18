@@ -1,0 +1,135 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    @template local_timespent/report_index
+
+    Time spent report page (layout aligned with site reports).
+
+    Example context (json):
+    {
+        "ajaxUrl": "https://example.com/local/timespent/ajax/get_index_report.php",
+        "downloadajaxurl": "https://example.com/local/timespent/ajax/download_index.php",
+        "currentuserid": 2,
+        "loadinggif": "https://example.com/pix/i/loading.gif",
+        "sesskey": "abc123",
+        "search_placeholder": "Search a record",
+        "search_go_label": "Go",
+        "exportlabel": "Export",
+        "exportcsv": "CSV",
+        "exportexcel": "Excel",
+        "recordsperpage": "Records per page",
+        "previouslabel": "Previous",
+        "nextlabel": "Next",
+        "selectcourseprompt": "Select a course to load the report.",
+        "nodataavailable": "No data available in table",
+        "colcount": 4,
+        "courses": [
+            {"id": 0, "fullname": "Select course"},
+            {"id": 2, "fullname": "Sample course"}
+        ],
+        "tableheader": [
+            {"name": "#"},
+            {"name": "Name"},
+            {"name": "Total time online"},
+            {"name": "Last session end"}
+        ]
+    }
+}}
+<div class="container-fluid slms-report-page local-timespent-report" data-region="timespent-report"
+    data-nodata="{{nodataavailable}}" data-colcount="{{colcount}}">
+    <div class="tablefilters">
+        <input type="hidden" name="ajaxUrl" id="ajaxUrl" value="{{{ajaxUrl}}}">
+        <input type="hidden" name="downloadajaxurl" id="downloadajaxurl" value="{{{downloadajaxurl}}}">
+        <input type="hidden" name="currentuserid" id="currentuserid" value="{{currentuserid}}">
+        <input type="hidden" id="timespent-sesskey" value="{{sesskey}}">
+        <input type="hidden" id="pagenumber" name="pagenumber" value="1">
+    </div>
+
+    <div class="table-div">
+        <div id="ajaxloading" class="ajaxloading">
+            <img src="{{{loadinggif}}}" alt="">
+        </div>
+
+        <div class="headerinfo">
+            <div class="left">
+                <div>
+                    <select id="courseid" class="form-select report-toolbar-select me-2"
+                        aria-label="{{#str}}select_course, local_timespent{{/str}}">
+                        {{#courses}}
+                            <option value="{{id}}">{{fullname}}</option>
+                        {{/courses}}
+                    </select>
+                </div>
+                <div class="searchbox">
+                    <label class="d-flex">
+                        <input type="search" id="searchdata" class="form-control form-control-sm"
+                            placeholder="{{search_placeholder}}" aria-label="{{search_placeholder}}">
+                        <button type="button" id="btnsearch">{{search_go_label}}</button>
+                    </label>
+                </div>
+            </div>
+            <div class="right">
+                <div class="slmstables_info">
+                    <div class="left">
+                        <div class="dropdown">
+                            <button class="btn btn-secondary slmsexport" type="button"
+                                data-bs-toggle="dropdown" aria-expanded="false" id="slmsexport">
+                                <span></span>{{exportlabel}}
+                            </button>
+                            <ul class="dropdown-menu auto-list-scroll" id="dataexport"
+                                aria-labelledby="slmsexport">
+                                <li data-export="excel"><label class="exp">{{exportexcel}}</label></li>
+                                <li data-export="csv"><label class="exp">{{exportcsv}}</label></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="timespent-empty" class="alert alert-info mb-3">{{selectcourseprompt}}</div>
+
+        <div class="report_table_wrapper">
+            <table id="timespent-index-table" class="display table table-striped table-hover" style="width:100%">
+                <thead>
+                    <tr>
+                        {{#tableheader}}
+                            <th>{{name}}</th>
+                        {{/tableheader}}
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <div class="footerinfo">
+            <div class="left">{{recordsperpage}}
+                <select name="rec_per_page" id="rec_per_page">
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                </select>
+            </div>
+            <div class="right">
+                <div class="slmstables_info">
+                    <span class="strarfrom">0</span> - <span class="limitto">0</span>
+                    <span class="totalrecords"></span>
+                    <button class="slmspage-item-previous" type="button" id="timespent-prev" disabled>
+                        <span class="arrow_back_icon"></span>
+                        <span class="visually-hidden">{{previouslabel}}</span>
+                    </button>
+                    <button class="slmspage-item-next" type="button" id="timespent-next" disabled>
+                        <span class="arrow_front_icon"></span>
+                        <span class="visually-hidden">{{nextlabel}}</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,67 @@
+/* Styles for local_timespent report (works alone; aligns with shared report classes when present). */
+
+.local-timespent-report .headerinfo {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    align-items: flex-start;
+}
+
+.local-timespent-report .headerinfo .left,
+.local-timespent-report .headerinfo .right {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.local-timespent-report #courseid {
+    min-width: 16rem;
+}
+
+.local-timespent-report .searchbox label {
+    gap: 0.35rem;
+}
+
+.local-timespent-report #ajaxloading {
+    display: none;
+    margin-bottom: 0.75rem;
+}
+
+.local-timespent-report #ajaxloading img {
+    height: 24px;
+    width: 24px;
+}
+
+.local-timespent-report .footerinfo {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: center;
+    margin-top: 1rem;
+}
+
+.local-timespent-report .footerinfo .left,
+.local-timespent-report .footerinfo .right .slmstables_info {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+@media (max-width: 767.98px) {
+    .local-timespent-report .headerinfo,
+    .local-timespent-report .footerinfo,
+    .local-timespent-report .headerinfo .left,
+    .local-timespent-report .headerinfo .right {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .local-timespent-report #courseid {
+        min-width: 0;
+        width: 100%;
+    }
+}

@@ -1,0 +1,17 @@
+# IDE and OS files.
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Node (if used for local Grunt builds).
+node_modules/
+
+# PHPUnit cache.
+.phpunit.cache/
+
+# Composer (if used locally).
+vendor/
+composer.lock
