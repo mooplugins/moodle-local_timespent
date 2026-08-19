@@ -53,5 +53,30 @@ function xmldb_local_timespent_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026081100, 'local', 'timespent');
     }
 
+    if ($oldversion < 2026081900) {
+        // No schema changes — packaging and CI/HTML lint fixes for public release.
+        upgrade_plugin_savepoint(true, 2026081900, 'local', 'timespent');
+    }
+
+    if ($oldversion < 2026081901) {
+        // No schema changes — report navigation and Boost-aligned UI.
+        upgrade_plugin_savepoint(true, 2026081901, 'local', 'timespent');
+    }
+
+    if ($oldversion < 2026081902) {
+        // No schema changes — report page uses core Moodle form, table, and download UI.
+        upgrade_plugin_savepoint(true, 2026081902, 'local', 'timespent');
+    }
+
+    if ($oldversion < 2026081903) {
+        // No schema changes — restore AJAX report UI with Boost components.
+        upgrade_plugin_savepoint(true, 2026081903, 'local', 'timespent');
+    }
+
+    if ($oldversion < 2026081904) {
+        // No schema changes — restore original report layout; pagination summary only.
+        upgrade_plugin_savepoint(true, 2026081904, 'local', 'timespent');
+    }
+
     return true;
 }

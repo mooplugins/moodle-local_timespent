@@ -1,4 +1,4 @@
-/* Styles for local_timespent report (works alone; aligns with shared report classes when present). */
+/* Styles for local_timespent report. */
 
 .local-timespent-report .headerinfo {
     display: flex;
@@ -6,7 +6,7 @@
     justify-content: space-between;
     gap: 1rem;
     margin-bottom: 1rem;
-    align-items: flex-start;
+    align-items: center;
 }
 
 .local-timespent-report .headerinfo .left,
@@ -17,12 +17,21 @@
     align-items: center;
 }
 
+.local-timespent-report .headerinfo .left > div {
+    display: flex;
+    align-items: center;
+}
+
 .local-timespent-report #courseid {
     min-width: 16rem;
 }
 
-.local-timespent-report .searchbox label {
-    gap: 0.35rem;
+.local-timespent-report .searchbox {
+    gap: 0.5rem;
+}
+
+.local-timespent-report .searchbox .form-control {
+    min-width: 12rem;
 }
 
 .local-timespent-report #ajaxloading {
@@ -45,10 +54,31 @@
 }
 
 .local-timespent-report .footerinfo .left,
-.local-timespent-report .footerinfo .right .slmstables_info {
+.local-timespent-report .footerinfo .right .timespent-tables-info {
     display: flex;
     align-items: center;
     gap: 0.5rem;
+}
+
+.local-timespent-report .timespent-paging-summary {
+    min-width: 10rem;
+}
+
+.local-timespent-report .timespent-paging-controls .pagination .page-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2.5rem;
+}
+
+.local-timespent-report .timespent-paging-controls .pagination .page-link .icon {
+    margin: 0;
+    width: 1rem;
+    height: 1rem;
+}
+
+.local-timespent-report .timespent-empty-row {
+    padding: 1rem;
 }
 
 @media (max-width: 767.98px) {
@@ -60,8 +90,14 @@
         align-items: stretch;
     }
 
-    .local-timespent-report #courseid {
+    .local-timespent-report #courseid,
+    .local-timespent-report .searchbox {
         min-width: 0;
         width: 100%;
+    }
+
+    .local-timespent-report .searchbox .form-control {
+        flex: 1 1 auto;
+        min-width: 0;
     }
 }

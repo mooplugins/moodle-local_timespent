@@ -85,6 +85,45 @@
         }
     }
 
+    function pagingTemplate() {
+        var root = document.querySelector('.local-timespent-report');
+        if (root && root.getAttribute('data-showingrecords')) {
+            return root.getAttribute('data-showingrecords');
+        }
+        return 'Showing %%FROM%% - %%TO%% of %%TOTAL%%';
+    }
+
+    function formatPagingSummary(from, to, total) {
+        return pagingTemplate()
+            .replace('%%FROM%%', String(from))
+            .replace('%%TO%%', String(to))
+            .replace('%%TOTAL%%', String(total));
+    }
+
+    function setPagerLinkState(link, disabled) {
+        if (!link) {
+            return;
+        }
+        link.setAttribute('aria-disabled', disabled ? 'true' : 'false');
+        if (disabled) {
+            link.setAttribute('tabindex', '-1');
+        } else {
+            link.removeAttribute('tabindex');
+        }
+        var item = link.closest('.page-item');
+        if (item) {
+            item.classList.toggle('disabled', disabled);
+        }
+    }
+
+    function isPagerDisabled(link) {
+        if (!link) {
+            return true;
+        }
+        var item = link.closest('.page-item');
+        return item ? item.classList.contains('disabled') : true;
+    }
+
     function updatePager(data) {
         var total = parseInt(data.total, 10) || 0;
         var from = parseInt(data.strarfrom, 10) || 0;
@@ -94,27 +133,13 @@
         var maxPage = total > 0 ? Math.ceil(total / perPage) : 1;
 
         var root = document.querySelector('.local-timespent-report') || document;
-        var fromEl = root.querySelector('.strarfrom');
-        var toEl = root.querySelector('.limitto');
-        var totalEl = root.querySelector('.totalrecords');
-        if (fromEl) {
-            fromEl.textContent = String(from);
-        }
-        if (toEl) {
-            toEl.textContent = String(to);
-        }
-        if (totalEl) {
-            totalEl.textContent = total ? (' / ' + total) : '';
+        var summaryEl = root.querySelector('.timespent-paging-summary');
+        if (summaryEl) {
+            summaryEl.textContent = total > 0 ? formatPagingSummary(from, to, total) : '';
         }
 
-        var prev = byId('timespent-prev');
-        var next = byId('timespent-next');
-        if (prev) {
-            prev.disabled = page <= 1 || total === 0;
-        }
-        if (next) {
-            next.disabled = page >= maxPage || total === 0;
-        }
+        setPagerLinkState(byId('timespent-prev'), page <= 1 || total === 0);
+        setPagerLinkState(byId('timespent-next'), page >= maxPage || total === 0);
     }
 
     function noDataMessage() {
@@ -142,12 +167,11 @@
         }
         tbody.innerHTML = '';
         if (!reports || !reports.length) {
-            // Show empty message only after a course is selected.
             if (selectedCourseId() > 0) {
                 var tr = document.createElement('tr');
                 var td = document.createElement('td');
                 td.colSpan = columnCount();
-                td.className = 'dataTables_empty text-center';
+                td.className = 'timespent-empty-row text-center text-muted';
                 td.textContent = noDataMessage();
                 tr.appendChild(td);
                 tbody.appendChild(tr);
@@ -243,6 +267,7 @@
         ajaxUrl = ajaxInput.value;
         setLoading(false);
         updateEmptyState();
+        updatePager({total: 0, strarfrom: 0, limitto: 0});
 
         courseSelect.addEventListener('change', function() {
             setPage(1);
@@ -278,7 +303,11 @@
 
         var prev = byId('timespent-prev');
         if (prev) {
-            prev.addEventListener('click', function() {
+            prev.addEventListener('click', function(event) {
+                event.preventDefault();
+                if (isPagerDisabled(prev)) {
+                    return;
+                }
                 setPage(Math.max(1, currentPage() - 1));
                 filtertable();
             });
@@ -286,7 +315,11 @@
 
         var next = byId('timespent-next');
         if (next) {
-            next.addEventListener('click', function() {
+            next.addEventListener('click', function(event) {
+                event.preventDefault();
+                if (isPagerDisabled(next)) {
+                    return;
+                }
                 setPage(currentPage() + 1);
                 filtertable();
             });
@@ -299,7 +332,6 @@
         });
     }
 
-    // Moodle footer JS often loads after DOMContentLoaded has already fired.
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {

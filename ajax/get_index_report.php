@@ -56,57 +56,26 @@ if (!$courseid || $courseid === (int) SITEID) {
     die();
 }
 
-$courseorregister = (object) ['id' => $courseid];
-$coursecontext = context_course::instance($courseid);
-[$esql, $params] = get_enrolled_sql($coursecontext);
-
-$where = 'u.deleted = 0';
-if ($searchdata !== '') {
-    $likesql = $DB->sql_like('u.firstname', ':search1', false)
-        . ' OR ' . $DB->sql_like('u.lastname', ':search2', false)
-        . ' OR ' . $DB->sql_like('u.email', ':search3', false)
-        . ' OR ' . $DB->sql_like('u.username', ':search4', false);
-    $where .= " AND ($likesql)";
-    $params['search1'] = '%' . $DB->sql_like_escape($searchdata) . '%';
-    $params['search2'] = $params['search1'];
-    $params['search3'] = $params['search1'];
-    $params['search4'] = $params['search1'];
-}
-
-$sql = "SELECT u.id, u.firstname, u.lastname
-          FROM {user} u
-          JOIN ($esql) je ON je.id = u.id
-         WHERE $where
-      ORDER BY u.firstname ASC";
-
-$sqlcount = "SELECT COUNT(u.id)
-               FROM {user} u
-               JOIN ($esql) je ON je.id = u.id
-              WHERE $where";
-
-$reportscount = (int) $DB->count_records_sql($sqlcount, $params);
-$reports = $DB->get_records_sql($sql, $params, $start, $limit);
-
-$i = $reportscount ? ($start + 1) : 0;
-foreach ($reports as $report) {
-    $details = local_timespent_build_new_user_sessions($courseorregister, $report->id, 0, true);
-    $fullname = fullname($report);
-    $profileurl = (new moodle_url('/user/profile.php', ['id' => $report->id]))->out(false);
+$report = local_timespent_get_report_users($courseid, $searchdata, $start, $limit);
+$i = $report['total'] ? ($start + 1) : 0;
+foreach ($report['users'] as $user) {
+    $details = local_timespent_prepare_user_report_data($courseid, $user);
+    $profileurl = new moodle_url('/user/profile.php', ['id' => $user->id]);
     $rows[] = [
         $i,
-        html_writer::link($profileurl, s(local_timespent_clean_export_data($fullname))),
-        s($details['duration']),
+        html_writer::link($profileurl, $details['fullname']),
+        $details['duration'],
         $details['lastsessionlogout'],
     ];
     $i++;
 }
 
-$limitto = min($start + $limit, $reportscount);
-$strarfrom = $reportscount ? ($start + 1) : 0;
+$limitto = min($start + $limit, $report['total']);
+$strarfrom = $report['total'] ? ($start + 1) : 0;
 
 echo json_encode([
     'reports' => $rows,
-    'total' => $reportscount,
+    'total' => $report['total'],
     'strarfrom' => $strarfrom,
     'limitto' => $limitto,
 ]);

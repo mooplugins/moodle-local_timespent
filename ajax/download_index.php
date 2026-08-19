@@ -33,11 +33,11 @@ $dataformat = required_param('dataformat', PARAM_ALPHA);
 $searchdata = optional_param('searchdata', '', PARAM_TEXT);
 $courseid = required_param('courseid', PARAM_INT);
 
-$tableheader = local_timespent_report_index_header();
-unset($tableheader[0]); // Skip row number column in export.
-
 $columns = [];
-foreach ($tableheader as $header) {
+foreach (local_timespent_report_index_header() as $header) {
+    if ($header['key'] === '#') {
+        continue;
+    }
     $columns[$header['key']] = $header['name'];
 }
 
@@ -46,34 +46,11 @@ $filename = str_replace(' ', '_', $filename);
 
 $rows = [];
 if ($courseid && $courseid !== (int) SITEID) {
-    $courseorregister = (object) ['id' => $courseid];
-    $coursecontext = context_course::instance($courseid);
-    [$esql, $params] = get_enrolled_sql($coursecontext);
-
-    $where = 'u.deleted = 0';
-    if ($searchdata !== '') {
-        $likesql = $DB->sql_like('u.firstname', ':search1', false)
-            . ' OR ' . $DB->sql_like('u.lastname', ':search2', false)
-            . ' OR ' . $DB->sql_like('u.email', ':search3', false)
-            . ' OR ' . $DB->sql_like('u.username', ':search4', false);
-        $where .= " AND ($likesql)";
-        $params['search1'] = '%' . $DB->sql_like_escape($searchdata) . '%';
-        $params['search2'] = $params['search1'];
-        $params['search3'] = $params['search1'];
-        $params['search4'] = $params['search1'];
-    }
-
-    $sql = "SELECT u.id, u.firstname, u.lastname
-              FROM {user} u
-              JOIN ($esql) je ON je.id = u.id
-             WHERE $where
-          ORDER BY u.firstname ASC";
-
-    $reports = $DB->get_records_sql($sql, $params);
-    foreach ($reports as $report) {
-        $details = local_timespent_build_new_user_sessions($courseorregister, $report->id, 0, true);
+    $report = local_timespent_get_report_users($courseid, $searchdata);
+    foreach ($report['users'] as $user) {
+        $details = local_timespent_prepare_user_report_data($courseid, $user);
         $rows[] = [
-            'name' => local_timespent_clean_export_data(fullname($report)),
+            'name' => local_timespent_clean_export_data($details['fullname']),
             'total_time_online' => $details['duration'],
             'last_session_end' => strip_tags($details['lastsessionlogout']),
         ];

@@ -23,43 +23,17 @@
  */
 
 require_once(__DIR__ . '/../../../config.php');
+require_once($CFG->libdir . '/adminlib.php');
 require_once($CFG->dirroot . '/local/timespent/locallib.php');
 
-$context = context_system::instance();
-require_login();
-local_timespent_require_view_report($context);
-
-// Optional shared helpers (course typing only) — report UI stays self-contained.
-if (file_exists($CFG->dirroot . '/local/slmscommon/locallib.php')) {
-    require_once($CFG->dirroot . '/local/slmscommon/locallib.php');
-}
+admin_externalpage_setup('local_timespent_report', '', null, '', ['pagelayout' => 'report']);
+$PAGE->set_primary_active_tab('siteadminnode');
 
 $heading = get_string('timespent_report', 'local_timespent');
-$url = new moodle_url('/local/timespent/report/index.php');
-$reporturl = new moodle_url('/report/index.php');
-$reportheading = get_string('heading', 'core_report');
-
-$PAGE->set_url($url);
-$PAGE->set_context($context);
-$PAGE->set_pagelayout('report');
-$PAGE->add_body_class('limitedwidth');
 $PAGE->set_heading($heading);
 $PAGE->set_title($heading);
-$PAGE->navbar->add($reportheading, $reporturl);
-$PAGE->navbar->add($heading, $url);
+$PAGE->add_body_class('limitedwidth');
 
-// Prefer shared site report styling when present; plugin CSS always loads as a fallback.
-$commoncss = $CFG->dirroot . '/commonresources/css/style.css';
-$datatablescss = $CFG->dirroot . '/commonresources/css/datatables.min.css';
-if (file_exists($commoncss)) {
-    $PAGE->requires->css('/commonresources/css/style.css?v=' . filemtime($commoncss));
-}
-if (file_exists($datatablescss)) {
-    $PAGE->requires->css('/commonresources/css/datatables.min.css');
-}
-$PAGE->requires->css('/local/timespent/styles.css');
-
-$PAGE->requires->jquery();
 $reportjs = '/local/timespent/js/report/index.js';
 $PAGE->requires->js(new moodle_url($reportjs, ['v' => filemtime($CFG->dirroot . $reportjs)]), true);
 
@@ -67,12 +41,7 @@ $courses = [
     ['id' => 0, 'fullname' => get_string('select_course', 'local_timespent')],
 ];
 foreach (get_courses() as $course) {
-    // Exclude the front page / whole-site course.
     if ((int) $course->id === (int) SITEID || (int) $course->category === 0) {
-        continue;
-    }
-    // Match other product reports: only standard courses when helper exists.
-    if (function_exists('slms_get_course_type') && slms_get_course_type($course->id) !== 'course') {
         continue;
     }
     $courses[] = [
@@ -91,13 +60,12 @@ usort($courses, static function ($a, $b) {
 });
 
 $tableheader = local_timespent_report_index_header();
-
-$loadinggifurl = '';
-if (file_exists($CFG->dirroot . '/commonresources/images/loading.gif')) {
-    $loadinggifurl = (new moodle_url('/commonresources/images/loading.gif'))->out(false);
-} else {
-    $loadinggifurl = $OUTPUT->image_url('i/loading', 'core')->out(false);
-}
+$loadinggifurl = $OUTPUT->image_url('i/loading', 'core')->out(false);
+$showingrecordsformat = get_string('showingrecords', 'local_timespent', (object) [
+    'from' => '%%FROM%%',
+    'to' => '%%TO%%',
+    'total' => '%%TOTAL%%',
+]);
 
 $data = [
     'ajaxUrl' => (new moodle_url('/local/timespent/ajax/get_index_report.php'))->out(false),
@@ -117,6 +85,7 @@ $data = [
     'nextlabel' => get_string('next', 'local_timespent'),
     'selectcourseprompt' => get_string('selectcourseprompt', 'local_timespent'),
     'nodataavailable' => get_string('nodataavailable', 'local_timespent'),
+    'showingrecordsformat' => $showingrecordsformat,
     'colcount' => count($tableheader),
 ];
 

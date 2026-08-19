@@ -29,6 +29,7 @@ $string['duration_mm'] = '{$a->minutes} min';
 $string['export'] = 'Export';
 $string['exportcsv'] = 'CSV';
 $string['exportexcel'] = 'Excel';
+$string['getreport'] = 'Get report';
 $string['last_session_end'] = 'Last session end';
 $string['loading'] = 'Loading...';
 $string['name'] = 'Name';

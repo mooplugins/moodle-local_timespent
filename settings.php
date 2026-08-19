@@ -24,11 +24,11 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-if ($hassiteconfig) {
-    $ADMIN->add('reports', new admin_externalpage(
-        'local_timespent_report',
-        get_string('timespent_report', 'local_timespent'),
-        $CFG->wwwroot . '/local/timespent/report/index.php',
-        'local/timespent:viewreport'
-    ));
-}
+// Always register the report. Access is gated by local/timespent:viewreport,
+// including users who do not have moodle/site:config.
+$ADMIN->add('reports', new admin_externalpage(
+    'local_timespent_report',
+    get_string('timespent_report', 'local_timespent'),
+    new moodle_url('/local/timespent/report/index.php'),
+    'local/timespent:viewreport'
+));

@@ -34,18 +34,7 @@ function local_timespent_require_view_report(?context $context = null): void {
         $context = context_system::instance();
     }
 
-    if (has_capability('local/timespent:viewreport', $context)) {
-        return;
-    }
-
-    // Allow staff who already have the shared reports capability on this product stack.
-    $pluginman = core_plugin_manager::instance();
-    if ($pluginman->get_plugin_info('local_slmscommon')
-            && has_capability('local/slmscommon:viewreports', $context)) {
-        return;
-    }
-
-    throw new required_capability_exception($context, 'local/timespent:viewreport', 'nopermissions', '');
+    require_capability('local/timespent:viewreport', $context);
 }
 
 /**
@@ -421,20 +410,84 @@ function local_timespent_format_datetime($datetime) {
  */
 function local_timespent_report_index_header() {
     return [
-        ['name' => '#', 'key' => '#', 'include' => false, 'show' => false],
-        ['name' => get_string('name', 'local_timespent'), 'key' => 'name', 'include' => false, 'show' => false],
-        [
-            'name' => get_string('total_time_online', 'local_timespent'),
-            'key' => 'total_time_online',
-            'include' => false,
-            'show' => false,
-        ],
-        [
-            'name' => get_string('last_session_end', 'local_timespent'),
-            'key' => 'last_session_end',
-            'include' => false,
-            'show' => false,
-        ],
+        ['name' => '#', 'key' => '#'],
+        ['name' => get_string('name', 'local_timespent'), 'key' => 'name'],
+        ['name' => get_string('total_time_online', 'local_timespent'), 'key' => 'total_time_online'],
+        ['name' => get_string('last_session_end', 'local_timespent'), 'key' => 'last_session_end'],
+    ];
+}
+
+/**
+ * Enrolled users for the time spent report, with optional name search.
+ *
+ * @param int $courseid
+ * @param string $searchdata
+ * @param int $limitfrom
+ * @param int $limitnum Zero means no limit.
+ * @return array{users: array, total: int}
+ */
+function local_timespent_get_report_users(
+    int $courseid,
+    string $searchdata = '',
+    int $limitfrom = 0,
+    int $limitnum = 0
+): array {
+    global $DB;
+
+    $coursecontext = \context_course::instance($courseid);
+    [$esql, $params] = get_enrolled_sql($coursecontext);
+
+    $where = 'u.deleted = 0';
+    if ($searchdata !== '') {
+        $likesql = $DB->sql_like('u.firstname', ':search1', false)
+            . ' OR ' . $DB->sql_like('u.lastname', ':search2', false)
+            . ' OR ' . $DB->sql_like('u.email', ':search3', false)
+            . ' OR ' . $DB->sql_like('u.username', ':search4', false);
+        $where .= " AND ($likesql)";
+        $params['search1'] = '%' . $DB->sql_like_escape($searchdata) . '%';
+        $params['search2'] = $params['search1'];
+        $params['search3'] = $params['search1'];
+        $params['search4'] = $params['search1'];
+    }
+
+    $sqlcount = "SELECT COUNT(u.id)
+                   FROM {user} u
+                   JOIN ($esql) je ON je.id = u.id
+                  WHERE $where";
+    $total = (int) $DB->count_records_sql($sqlcount, $params);
+
+    $usernamefields = \core_user\fields::for_name()->get_sql('u', false, '', '', false);
+    [$sort, $sortparams] = users_order_by_sql('u');
+    $params = array_merge($params, $sortparams);
+
+    $sql = "SELECT u.id, {$usernamefields->selects}
+              FROM {user} u
+              JOIN ($esql) je ON je.id = u.id
+             WHERE $where
+          ORDER BY $sort";
+
+    if ($limitnum) {
+        $users = $DB->get_records_sql($sql, $params, $limitfrom, $limitnum);
+    } else {
+        $users = $DB->get_records_sql($sql, $params);
+    }
+
+    return ['users' => $users, 'total' => $total];
+}
+
+/**
+ * Session totals for one user in a course.
+ *
+ * @param int $courseid
+ * @param \stdClass $user
+ * @return array{fullname: string, duration: string, lastsessionlogout: string}
+ */
+function local_timespent_prepare_user_report_data(int $courseid, \stdClass $user): array {
+    $details = local_timespent_build_new_user_sessions((object) ['id' => $courseid], $user->id, 0, true);
+    return [
+        'fullname' => fullname($user),
+        'duration' => $details['duration'],
+        'lastsessionlogout' => $details['lastsessionlogout'],
     ];
 }
 
