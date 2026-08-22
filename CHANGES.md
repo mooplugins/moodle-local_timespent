@@ -2,7 +2,7 @@
 
 All notable changes to the Time spent plugin are documented here.
 
-## 1.1.0 - 2026-08-10
+## 1.1.5 - 2026-08-19
 
 ### Added
 
