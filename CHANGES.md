@@ -2,6 +2,25 @@
 
 All notable changes to the Time spent plugin are documented here.
 
+## 1.2.0 - 2026-09-09
+
+### Fixed
+
+- Safer, incremental logstore queries (batched, course-scoped, limited columns) to avoid timeouts on large sites (#1).
+- Report data loading now uses Moodle External Services instead of a dedicated AJAX page (#2).
+- Report JavaScript migrated to a Moodle AMD module (#3).
+
+### Added
+
+- `local_timespent_progress` table for per-user/course processing watermarks.
+- Event observers for `course_viewed` and `course_module_viewed` to update time spent without full log scans.
+- External function `local_timespent_get_index_report`.
+
+### Changed
+
+- Report page prefers stored aggregates and only recalculates when stale.
+- Legacy `ajax/get_index_report.php` kept as a thin compatibility wrapper.
+
 ## 1.1.5 - 2026-08-19
 
 ### Added

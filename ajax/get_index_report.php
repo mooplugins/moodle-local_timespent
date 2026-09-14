@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * AJAX endpoint: paginated time spent report rows.
+ * Legacy AJAX endpoint (prefer local_timespent_get_index_report external service).
  *
  * @package    local_timespent
  * @copyright  2026 Mooplugins
@@ -29,53 +29,31 @@ require_once($CFG->dirroot . '/local/timespent/locallib.php');
 
 require_login();
 local_timespent_require_view_report();
-// Sesskey is preferred; do not hard-fail if omitted (report is already capability-gated).
 if (optional_param('sesskey', '', PARAM_RAW) !== '') {
     require_sesskey();
 }
 
 $courseid = optional_param('courseid', 0, PARAM_INT);
-$page = max(0, optional_param('currentpagenumber', 1, PARAM_INT) - 1);
+$page = max(1, optional_param('currentpagenumber', 1, PARAM_INT));
 $limit = optional_param('rec_per_page', 10, PARAM_INT);
 $searchdata = optional_param('searchdata', '', PARAM_TEXT);
 
-if (!in_array($limit, [10, 25, 50, 100], true)) {
-    $limit = 10;
-}
+$data = local_timespent_get_index_report_data($courseid, $searchdata, $page, $limit);
 
-$start = $page * $limit;
-$rows = [];
-
-if (!$courseid || $courseid === (int) SITEID) {
-    echo json_encode([
-        'reports' => [],
-        'total' => 0,
-        'strarfrom' => 0,
-        'limitto' => 0,
-    ]);
-    die();
-}
-
-$report = local_timespent_get_report_users($courseid, $searchdata, $start, $limit);
-$i = $report['total'] ? ($start + 1) : 0;
-foreach ($report['users'] as $user) {
-    $details = local_timespent_prepare_user_report_data($courseid, $user);
-    $profileurl = new moodle_url('/user/profile.php', ['id' => $user->id]);
-    $rows[] = [
-        $i,
-        html_writer::link($profileurl, $details['fullname']),
-        $details['duration'],
-        $details['lastsessionlogout'],
+// Preserve previous HTML cell format for any remaining legacy callers.
+$htmlrows = [];
+foreach ($data['reports'] as $row) {
+    $htmlrows[] = [
+        $row['rownumber'],
+        html_writer::link($row['profileurl'], $row['fullname']),
+        $row['duration'],
+        $row['lastsessionlogout'],
     ];
-    $i++;
 }
-
-$limitto = min($start + $limit, $report['total']);
-$strarfrom = $report['total'] ? ($start + 1) : 0;
 
 echo json_encode([
-    'reports' => $rows,
-    'total' => $report['total'],
-    'strarfrom' => $strarfrom,
-    'limitto' => $limitto,
+    'reports' => $htmlrows,
+    'total' => $data['total'],
+    'strarfrom' => $data['strarfrom'],
+    'limitto' => $data['limitto'],
 ]);
