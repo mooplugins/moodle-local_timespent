@@ -49,8 +49,8 @@ After install, open the Time spent report from your site reports area (or ask yo
 ## Tips for accurate results
 
 - Learners must generate activity in the course (opening resources, activities, and so on) — sitting idle with no Moodle clicks is not counted.
-- Totals update when time spent is calculated for that user and course (for example when viewing the report or when another feature asks for the figure).
-- Keep the standard log store enabled; without course activity logs, sessions cannot be built.
+- Totals update from live course activity observers and from incremental log processing when reports are viewed.
+- Keep the standard log store enabled; without course activity logs, historical sessions cannot be rebuilt.
 
 ## License
 

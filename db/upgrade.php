@@ -78,5 +78,26 @@ function xmldb_local_timespent_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026081904, 'local', 'timespent');
     }
 
+    if ($oldversion < 2026090900) {
+        // Incremental session calculation watermark table.
+        $table = new xmldb_table('local_timespent_progress');
+
+        $table->add_field('id', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, XMLDB_SEQUENCE, null);
+        $table->add_field('register', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('userid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('lastlogtime', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('sessionstart', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+        $table->add_field('timemodified', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0');
+
+        $table->add_key('primary', XMLDB_KEY_PRIMARY, ['id']);
+        $table->add_index('local_timespent_prog_regu_uix', XMLDB_INDEX_UNIQUE, ['register', 'userid']);
+
+        if (!$dbman->table_exists($table)) {
+            $dbman->create_table($table);
+        }
+
+        upgrade_plugin_savepoint(true, 2026090900, 'local', 'timespent');
+    }
+
     return true;
 }

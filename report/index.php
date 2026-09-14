@@ -34,9 +34,6 @@ $PAGE->set_heading($heading);
 $PAGE->set_title($heading);
 $PAGE->add_body_class('limitedwidth');
 
-$reportjs = '/local/timespent/js/report/index.js';
-$PAGE->requires->js(new moodle_url($reportjs, ['v' => filemtime($CFG->dirroot . $reportjs)]), true);
-
 $courses = [
     ['id' => 0, 'fullname' => get_string('select_course', 'local_timespent')],
 ];
@@ -67,9 +64,10 @@ $showingrecordsformat = get_string('showingrecords', 'local_timespent', (object)
     'total' => '%%TOTAL%%',
 ]);
 
+$downloadurl = (new moodle_url('/local/timespent/ajax/download_index.php'))->out(false);
+
 $data = [
-    'ajaxUrl' => (new moodle_url('/local/timespent/ajax/get_index_report.php'))->out(false),
-    'downloadajaxurl' => (new moodle_url('/local/timespent/ajax/download_index.php'))->out(false),
+    'downloadajaxurl' => $downloadurl,
     'currentuserid' => $USER->id,
     'loadinggif' => $loadinggifurl,
     'courses' => $courses,
@@ -88,6 +86,14 @@ $data = [
     'showingrecordsformat' => $showingrecordsformat,
     'colcount' => count($tableheader),
 ];
+
+$PAGE->requires->js_call_amd('local_timespent/report', 'init', [[
+    'downloadurl' => $downloadurl,
+    'sesskey' => sesskey(),
+    'nodata' => get_string('nodataavailable', 'local_timespent'),
+    'showingrecords' => $showingrecordsformat,
+    'colcount' => count($tableheader),
+]]);
 
 echo $OUTPUT->header();
 echo $OUTPUT->render_from_template('local_timespent/report_index', $data);

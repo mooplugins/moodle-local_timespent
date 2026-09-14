@@ -60,6 +60,14 @@ class provider implements
             'lastsessionlogout' => 'privacy:metadata:local_timespent_aggregate:lastsessionlogout',
         ], 'privacy:metadata:local_timespent_aggregate');
 
+        $collection->add_database_table('local_timespent_progress', [
+            'register' => 'privacy:metadata:local_timespent_progress:register',
+            'userid' => 'privacy:metadata:local_timespent_progress:userid',
+            'lastlogtime' => 'privacy:metadata:local_timespent_progress:lastlogtime',
+            'sessionstart' => 'privacy:metadata:local_timespent_progress:sessionstart',
+            'timemodified' => 'privacy:metadata:local_timespent_progress:timemodified',
+        ], 'privacy:metadata:local_timespent_progress');
+
         return $collection;
     }
 
@@ -80,13 +88,20 @@ class provider implements
                 SELECT ctx.id
                   FROM {context} ctx
                   JOIN {local_timespent_aggregate} a ON a.register = ctx.instanceid AND ctx.contextlevel = :level2
-                 WHERE a.userid = :userid2";
+                 WHERE a.userid = :userid2
+                 UNION
+                SELECT ctx.id
+                  FROM {context} ctx
+                  JOIN {local_timespent_progress} p ON p.register = ctx.instanceid AND ctx.contextlevel = :level3
+                 WHERE p.userid = :userid3";
 
         $contextlist->add_from_sql($sql, [
             'level1' => CONTEXT_COURSE,
             'level2' => CONTEXT_COURSE,
+            'level3' => CONTEXT_COURSE,
             'userid1' => $userid,
             'userid2' => $userid,
+            'userid3' => $userid,
         ]);
 
         return $contextlist;
@@ -106,10 +121,13 @@ class provider implements
 
         $sql = "SELECT userid FROM {local_timespent_session} WHERE register = :courseid
                 UNION
-                SELECT userid FROM {local_timespent_aggregate} WHERE register = :courseid2";
+                SELECT userid FROM {local_timespent_aggregate} WHERE register = :courseid2
+                UNION
+                SELECT userid FROM {local_timespent_progress} WHERE register = :courseid3";
         $userlist->add_from_sql('userid', $sql, [
             'courseid' => $context->instanceid,
             'courseid2' => $context->instanceid,
+            'courseid3' => $context->instanceid,
         ]);
     }
 
@@ -140,12 +158,17 @@ class provider implements
                 'register' => $courseid,
                 'userid' => $userid,
             ]);
-            if ($sessions || $aggregates) {
+            $progress = $DB->get_records('local_timespent_progress', [
+                'register' => $courseid,
+                'userid' => $userid,
+            ]);
+            if ($sessions || $aggregates || $progress) {
                 writer::with_context($context)->export_data(
                     [get_string('pluginname', 'local_timespent')],
                     (object) [
                         'sessions' => array_values($sessions),
                         'aggregates' => array_values($aggregates),
+                        'progress' => array_values($progress),
                     ]
                 );
             }
@@ -167,6 +190,7 @@ class provider implements
 
         $DB->delete_records('local_timespent_session', ['register' => $context->instanceid]);
         $DB->delete_records('local_timespent_aggregate', ['register' => $context->instanceid]);
+        $DB->delete_records('local_timespent_progress', ['register' => $context->instanceid]);
     }
 
     /**
@@ -192,6 +216,10 @@ class provider implements
                 'userid' => $userid,
             ]);
             $DB->delete_records('local_timespent_aggregate', [
+                'register' => $context->instanceid,
+                'userid' => $userid,
+            ]);
+            $DB->delete_records('local_timespent_progress', [
                 'register' => $context->instanceid,
                 'userid' => $userid,
             ]);
@@ -221,5 +249,6 @@ class provider implements
         $params = array_merge(['courseid' => $context->instanceid], $userparams);
         $DB->delete_records_select('local_timespent_session', "register = :courseid AND userid $usersql", $params);
         $DB->delete_records_select('local_timespent_aggregate', "register = :courseid AND userid $usersql", $params);
+        $DB->delete_records_select('local_timespent_progress', "register = :courseid AND userid $usersql", $params);
     }
 }

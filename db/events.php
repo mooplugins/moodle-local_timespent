@@ -15,7 +15,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Version metadata for local_timespent.
+ * Event observers for local_timespent.
  *
  * @package    local_timespent
  * @copyright  2026 Mooplugins
@@ -24,9 +24,13 @@
 
 defined('MOODLE_INTERNAL') || die();
 
-$plugin->component = 'local_timespent';
-$plugin->version   = 2026090900;
-$plugin->requires  = 2024100700; // Moodle 4.5 or later.
-$plugin->supported = [405, 502]; // Moodle 4.5 through 5.2.
-$plugin->maturity  = MATURITY_STABLE;
-$plugin->release   = '1.2.0';
+$observers = [
+    [
+        'eventname' => '\core\event\course_viewed',
+        'callback' => '\local_timespent\observer::course_viewed',
+    ],
+    [
+        'eventname' => '\core\event\course_module_viewed',
+        'callback' => '\local_timespent\observer::course_module_viewed',
+    ],
+];
