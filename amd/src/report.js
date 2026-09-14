@@ -21,7 +21,7 @@
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-define(['jquery', 'core/ajax', 'core/notification'], function($, Ajax, Notification) {
+define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
     var initialized = false;
     var config = {
         downloadurl: '',
@@ -274,7 +274,7 @@ define(['jquery', 'core/ajax', 'core/notification'], function($, Ajax, Notificat
             renderRows([]);
             updatePager({total: 0, strarfrom: 0, limitto: 0});
             return null;
-        }).then(function() {
+        }).finally(function() {
             setLoading(false);
         });
     }
