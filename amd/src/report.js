@@ -17,7 +17,8 @@
  * Time spent report UI (AMD).
  *
  * @module     local_timespent/report
- * @copyright  2026 Mooplugins
+ * @author     BitKea Technologies LLP
+ * @copyright  2026 BitKea Technologies LLP
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
