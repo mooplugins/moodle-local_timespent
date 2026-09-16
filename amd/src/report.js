@@ -269,14 +269,14 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
         requests[0].then(function(data) {
             renderRows(data.reports || []);
             updatePager(data);
+            setLoading(false);
             return null;
         }).catch(function(err) {
             Notification.exception(err);
             renderRows([]);
             updatePager({total: 0, strarfrom: 0, limitto: 0});
-            return null;
-        }).finally(function() {
             setLoading(false);
+            return null;
         });
     }
 
