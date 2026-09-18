@@ -15,6 +15,8 @@ All notable changes to the Time spent plugin are documented here.
 - CI Mustache Lint: picker inputs include `role="combobox"`.
 - CI Grunt: AMD build is properly minified (`amd/build/report.min.js`).
 - CI Grunt stylelint: removed `!important` from report CSS.
+- Hide loader without Bootstrap `.d-flex` so `[hidden]` works on Moodle 4.5+.
+- Restore filter border-radius overrides (stylelint-disabled) against Bootstrap input-group.
 
 ## 1.3.4 - 2026-09-18
 
