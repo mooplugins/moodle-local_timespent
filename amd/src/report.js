@@ -797,20 +797,9 @@ define([
     }
 
     /**
-     * @param {Object} cfg
+     * @param {HTMLElement} root
      */
-    function init(cfg) {
-        if (initialized) {
-            return;
-        }
-        var root = document.querySelector('.local-timespent-report');
-        var courseHidden = byId('courseid');
-        if (!root || !courseHidden) {
-            return;
-        }
-        initialized = true;
-        config = Object.assign(config, cfg || {});
-
+    function applyConfigFromDom(root) {
         [
             ['data-nodata', 'nodata'],
             ['data-showingrecords', 'showingrecords'],
@@ -839,7 +828,6 @@ define([
         if (!config.downloadurl && downloadInput) {
             config.downloadurl = downloadInput.value;
         }
-
         try {
             courseHeaders = JSON.parse(byId('timespent-course-headers').textContent || '[]');
             userHeaders = JSON.parse(byId('timespent-user-headers').textContent || '[]');
@@ -847,15 +835,11 @@ define([
             courseHeaders = [];
             userHeaders = [];
         }
+    }
 
-        bindPicker('course');
-        bindPicker('user');
-
-        setLoading(false);
-        setReportMode('course');
-        applyModeUi();
-        updatePager({total: 0, strarfrom: 0, limitto: 0});
-
+    /**
+     */
+    function bindToolbarEvents() {
         document.querySelectorAll('[data-reportmode]').forEach(function(btn) {
             btn.addEventListener('click', function() {
                 if (loading) {
@@ -942,6 +926,30 @@ define([
                 download(item.getAttribute('data-export'));
             });
         });
+    }
+
+    /**
+     * @param {Object} cfg
+     */
+    function init(cfg) {
+        if (initialized) {
+            return;
+        }
+        var root = document.querySelector('.local-timespent-report');
+        var courseHidden = byId('courseid');
+        if (!root || !courseHidden) {
+            return;
+        }
+        initialized = true;
+        config = Object.assign(config, cfg || {});
+        applyConfigFromDom(root);
+        bindPicker('course');
+        bindPicker('user');
+        setLoading(false);
+        setReportMode('course');
+        applyModeUi();
+        updatePager({total: 0, strarfrom: 0, limitto: 0});
+        bindToolbarEvents();
     }
 
     return {
