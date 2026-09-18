@@ -34,4 +34,8 @@ $observers = [
         'eventname' => '\core\event\course_module_viewed',
         'callback' => '\local_timespent\observer::course_module_viewed',
     ],
+    [
+        'eventname' => '\core\event\user_loggedout',
+        'callback' => '\local_timespent\observer::user_loggedout',
+    ],
 ];

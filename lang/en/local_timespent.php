@@ -25,6 +25,7 @@
 
 defined('MOODLE_INTERNAL') || die();
 
+$string['clearselection'] = 'Clear selection';
 $string['duration_hh_mm'] = '{$a->hours} h, {$a->minutes} min';
 $string['duration_mm'] = '{$a->minutes} min';
 $string['export'] = 'Export';
@@ -38,8 +39,10 @@ $string['never'] = '(never)';
 $string['next'] = 'Next';
 $string['no_session'] = 'No session';
 $string['nocourses'] = 'No courses available.';
+$string['nocoursesfound'] = 'No courses found';
 $string['nodataavailable'] = 'No data available in table';
 $string['nousers'] = 'No enrolled users found for this course.';
+$string['nousersfound'] = 'No users found';
 $string['pluginname'] = 'Time spent';
 $string['previous'] = 'Previous';
 $string['privacy:metadata:local_timespent_aggregate'] = 'Stores aggregated time-spent totals for users in courses.';
@@ -60,13 +63,20 @@ $string['privacy:metadata:local_timespent_session:logout'] = 'Session end timest
 $string['privacy:metadata:local_timespent_session:register'] = 'The course the session belongs to.';
 $string['privacy:metadata:local_timespent_session:userid'] = 'The user the session belongs to.';
 $string['recordsperpage'] = 'Records per page';
+$string['reportmode'] = 'Report type';
+$string['reportmode_course'] = 'By course';
+$string['reportmode_user'] = 'By user';
 $string['search'] = 'Go';
+$string['searchcourseplaceholder'] = 'Search courses';
 $string['searchplaceholder'] = 'Search a record';
+$string['searchuserplaceholder'] = 'Search users';
 $string['select_course'] = 'Select course';
-$string['selectcourseprompt'] = 'Select a course to load the report.';
+$string['select_user'] = 'Select user';
+$string['selectcourseprompt'] = 'Search and select a course to load the report.';
+$string['selectuserprompt'] = 'Search and select a user to load their courses.';
 $string['showingrecords'] = 'Showing {$a->from} - {$a->to} of {$a->total}';
 $string['timespent:viewreport'] = 'View time spent report';
 $string['timespent_report'] = 'Time spent report';
-$string['timespent_report_shortdesc'] = 'This report shows time spent by enrolled users in a selected course.';
+$string['timespent_report_shortdesc'] = 'This report shows time spent by course or by user across their enrolled courses.';
 $string['title'] = 'Time spent';
 $string['total_time_online'] = 'Total time online';

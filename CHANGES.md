@@ -2,6 +2,72 @@
 
 All notable changes to the Time spent plugin are documented here.
 
+## 1.3.5 - 2026-09-18
+
+### Changed
+
+- Export reads stored aggregates/progress in bulk (no logstore rebuild per row).
+- Report table builds name links with DOM APIs (`textContent`) instead of `innerHTML`.
+
+## 1.3.4 - 2026-09-18
+
+### Security
+
+- Revoke legacy `coursecreator` default for `local/timespent:viewreport` on upgrade.
+
+## 1.3.3 - 2026-09-18
+
+### Security
+
+- Legacy AJAX endpoint always requires sesskey.
+- Default `viewreport` capability limited to manager (coursecreator removed).
+- User picker requires 2+ characters and searches names only (not email/username).
+- Course search no longer returns hidden courses without `viewhiddencourses`.
+- Suspended users excluded from the user picker.
+- Export dataformat allowlisted; spreadsheet formula sanitisation hardened.
+- Report header JSON encoded with `JSON_HEX_*` flags.
+
+## 1.3.2 - 2026-09-18
+
+### Changed
+
+- Course and user pickers no longer preload full lists on page load.
+- Typeahead search loads at most 25 matching courses/users via AJAX (debounced).
+
+### Added
+
+- External service `local_timespent_search_courses`.
+
+## 1.3.1 - 2026-09-18
+
+### Changed
+
+- Report mode uses a Moodle button group (`By course` / `By user`).
+- Course and user pickers use simple `form-select` dropdowns (no autocomplete badges).
+- Course/user selectors are disabled while report data is loading.
+- Loading indicator uses the core Moodle loading template.
+
+## 1.3.0 - 2026-09-18
+
+### Added
+
+- User report mode: select a user and list all enrolled courses with total time online and last session end.
+- External services `local_timespent_get_user_report` and `local_timespent_search_users`.
+- CSV/Excel export for the user report.
+
+## 1.2.1 - 2026-09-17
+
+### Fixed
+
+- Report showed no time for a visit until the session had been idle for 15 minutes: the session still in
+  progress is now included in the total time online and last session end.
+- Logging out did not end the tracked session. A `user_loggedout` observer now closes every open session
+  of that user at the logout time.
+- Session end is the last recorded activity (or the logout) instead of that time plus half the idle
+  timeout, which added roughly 7.5 minutes to every session.
+- An incremental recalculation could delete an already finished session that started exactly on the
+  processing watermark without adjusting the stored totals.
+
 ## 1.2.0 - 2026-09-09
 
 ### Fixed

@@ -30,9 +30,7 @@ require_once($CFG->dirroot . '/local/timespent/locallib.php');
 
 require_login();
 local_timespent_require_view_report();
-if (optional_param('sesskey', '', PARAM_RAW) !== '') {
-    require_sesskey();
-}
+require_sesskey();
 
 $courseid = optional_param('courseid', 0, PARAM_INT);
 $page = max(1, optional_param('currentpagenumber', 1, PARAM_INT));
