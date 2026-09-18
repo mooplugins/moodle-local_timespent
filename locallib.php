@@ -87,7 +87,7 @@ function local_timespent_build_new_user_sessions($courseorregister, $userid, $fr
         && $progress
         && ((int) $progress->timemodified + LOCAL_TIMESPENT_RECALC_TTL) >= $totime
     ) {
-        return local_timespent_format_summary_result($useraggr, $formatted);
+        return local_timespent_format_summary_result($useraggr, $formatted, $progress);
     }
 
     $isfullrebuild = ($fromtime == 0 && !$progress && !$useraggr);
@@ -116,7 +116,9 @@ function local_timespent_build_new_user_sessions($courseorregister, $userid, $fr
 
     if ($progress && $fromtime > 0 && !$isfullrebuild) {
         // Drop incomplete tail sessions that overlap the window we will rebuild.
-        local_timespent_delete_user_online_sessions($courseorregister, $userid, $fromtime);
+        // Sessions are rebuilt from logs newer than the watermark, so a session
+        // starting exactly on the watermark is already final and must be kept.
+        local_timespent_delete_user_online_sessions($courseorregister, $userid, $fromtime, false);
     }
 
     $newsessionscount = local_timespent_process_log_batches(
@@ -130,8 +132,7 @@ function local_timespent_build_new_user_sessions($courseorregister, $userid, $fr
 
     // Close an open session that has gone idle.
     if ($sessionstart && $prevactivity && (($totime - $prevactivity) > LOCAL_TIMESPENT_SESSION_TIMEOUT)) {
-        $estimatedsessionend = $prevactivity + (int) (LOCAL_TIMESPENT_SESSION_TIMEOUT / 2);
-        local_timespent_save_session($courseorregister, $userid, $sessionstart, $estimatedsessionend);
+        local_timespent_save_session($courseorregister, $userid, $sessionstart, $prevactivity);
         $newsessionscount++;
         $sessionstart = 0;
     }
@@ -148,7 +149,10 @@ function local_timespent_build_new_user_sessions($courseorregister, $userid, $fr
         'grandtotal' => 1,
     ]);
 
-    return local_timespent_format_summary_result($useraggr, $formatted);
+    return local_timespent_format_summary_result($useraggr, $formatted, (object) [
+        'sessionstart' => $sessionstart,
+        'lastlogtime' => $prevactivity,
+    ]);
 }
 
 /**
@@ -198,8 +202,7 @@ function local_timespent_process_log_batches(
             }
 
             if (($activitytime - $prevactivity) > LOCAL_TIMESPENT_SESSION_TIMEOUT) {
-                $estimatedsessionend = $prevactivity + (int) (LOCAL_TIMESPENT_SESSION_TIMEOUT / 2);
-                local_timespent_save_session($courseorregister, $userid, $sessionstart, $estimatedsessionend);
+                local_timespent_save_session($courseorregister, $userid, $sessionstart, $prevactivity);
                 $newsessionscount++;
                 $sessionstart = $activitytime;
             }
@@ -213,17 +216,32 @@ function local_timespent_process_log_batches(
 /**
  * Format aggregate row into API summary.
  *
+ * Stored aggregates only contain sessions that have already been closed, so the
+ * still-open session described by the progress watermark is added here. Without
+ * this the report ignores the current visit until the idle timeout expires.
+ *
  * @param stdClass|false|null $useraggr
  * @param int|bool $formatted
+ * @param stdClass|false|null $progress Progress watermark for the same user and course.
  * @return array
  */
-function local_timespent_format_summary_result($useraggr, $formatted = 0): array {
-    $duration = ($useraggr) ? $useraggr->duration : 0;
-    if ($formatted) {
-        $duration = ($useraggr) ? local_timespent_format_duration($useraggr->duration) : '-';
+function local_timespent_format_summary_result($useraggr, $formatted = 0, $progress = null): array {
+    $duration = ($useraggr) ? (int) $useraggr->duration : 0;
+    $lastsessionend = ($useraggr) ? (int) $useraggr->lastsessionlogout : 0;
+
+    if ($progress && (int) $progress->sessionstart) {
+        $opensessionend = max((int) $progress->lastlogtime, (int) $progress->sessionstart);
+        $duration += $opensessionend - (int) $progress->sessionstart;
+        $lastsessionend = max($lastsessionend, $opensessionend);
     }
-    $lastsessionlogout = ($useraggr)
-        ? local_timespent_format_datetime($useraggr->lastsessionlogout)
+
+    if ($formatted) {
+        $duration = ($useraggr || $lastsessionend)
+            ? local_timespent_format_duration($duration)
+            : get_string('no_session', 'local_timespent');
+    }
+    $lastsessionlogout = ($useraggr || $lastsessionend)
+        ? local_timespent_format_datetime($lastsessionend)
         : get_string('no_session', 'local_timespent');
 
     return ['duration' => $duration, 'lastsessionlogout' => $lastsessionlogout];
@@ -253,8 +271,7 @@ function local_timespent_record_activity_event(int $userid, int $courseid, int $
     if (!$sessionstart) {
         $sessionstart = $activitytime;
     } else if ($prevactivity && (($activitytime - $prevactivity) > LOCAL_TIMESPENT_SESSION_TIMEOUT)) {
-        $estimatedsessionend = $prevactivity + (int) (LOCAL_TIMESPENT_SESSION_TIMEOUT / 2);
-        local_timespent_save_session($courseorregister, $userid, $sessionstart, $estimatedsessionend);
+        local_timespent_save_session($courseorregister, $userid, $sessionstart, $prevactivity);
         $newsessions++;
         $sessionstart = $activitytime;
     }
@@ -263,6 +280,47 @@ function local_timespent_record_activity_event(int $userid, int $courseid, int $
     local_timespent_save_progress($courseid, $userid, $prevactivity, $sessionstart, time());
 
     if ($newsessions) {
+        local_timespent_update_user_aggregates($courseorregister, $userid);
+    }
+}
+
+/**
+ * Close every open session of a user, in all courses.
+ *
+ * Called on logout so the report reflects the visit straight away instead of
+ * waiting for the idle timeout to expire.
+ *
+ * @param int $userid
+ * @param int $endtime Timestamp that ended the sessions.
+ * @return void
+ */
+function local_timespent_close_user_open_sessions(int $userid, int $endtime): void {
+    global $DB;
+
+    if ($userid <= 0 || isguestuser($userid)) {
+        return;
+    }
+
+    $openprogress = $DB->get_records_select(
+        'local_timespent_progress',
+        'userid = :userid AND sessionstart > 0',
+        ['userid' => $userid]
+    );
+
+    foreach ($openprogress as $progress) {
+        $courseid = (int) $progress->register;
+        $sessionstart = (int) $progress->sessionstart;
+        $lastlogtime = (int) $progress->lastlogtime;
+        $courseorregister = (object) ['id' => $courseid];
+
+        // Trust the logout only while it is still inside the same session.
+        $sessionend = max($lastlogtime, $sessionstart);
+        if ($endtime > $sessionend && ($endtime - $sessionend) <= LOCAL_TIMESPENT_SESSION_TIMEOUT) {
+            $sessionend = $endtime;
+        }
+
+        local_timespent_save_session($courseorregister, $userid, $sessionstart, $sessionend);
+        local_timespent_save_progress($courseid, $userid, $sessionend, 0, time());
         local_timespent_update_user_aggregates($courseorregister, $userid);
     }
 }
@@ -495,15 +553,23 @@ function local_timespent_get_user_oldest_log_entry_timestamp($userid, $courseid 
  *
  * @param stdClass $courseorregister
  * @param int $userid
- * @param int|null $onlydeleteafter When set, only delete sessions with login >= this timestamp.
+ * @param int|null $onlydeleteafter When set, only delete sessions starting at or after this timestamp.
+ * @param bool $inclusive Whether a session starting exactly on $onlydeleteafter is deleted too.
  * @return void
  */
-function local_timespent_delete_user_online_sessions($courseorregister, $userid, $onlydeleteafter = null) {
+function local_timespent_delete_user_online_sessions(
+    $courseorregister,
+    $userid,
+    $onlydeleteafter = null,
+    $inclusive = true
+) {
     global $DB;
 
     $params = ['userid' => $userid, 'register' => $courseorregister->id, 'onlinesess' => 1];
     if ($onlydeleteafter) {
-        $where = 'userid = :userid AND register = :register AND onlinesess = :onlinesess AND login >= :lowerlimit';
+        $operator = $inclusive ? '>=' : '>';
+        $where = 'userid = :userid AND register = :register AND onlinesess = :onlinesess'
+            . ' AND login ' . $operator . ' :lowerlimit';
         $params['lowerlimit'] = $onlydeleteafter;
         $DB->delete_records_select('local_timespent_session', $where, $params);
     } else {
@@ -671,7 +737,7 @@ function local_timespent_format_datetime($datetime) {
 }
 
 /**
- * Table headers for the index report.
+ * Table headers for the index report (by course).
  *
  * @return array
  */
@@ -679,6 +745,20 @@ function local_timespent_report_index_header() {
     return [
         ['name' => '#', 'key' => '#'],
         ['name' => get_string('name', 'local_timespent'), 'key' => 'name'],
+        ['name' => get_string('total_time_online', 'local_timespent'), 'key' => 'total_time_online'],
+        ['name' => get_string('last_session_end', 'local_timespent'), 'key' => 'last_session_end'],
+    ];
+}
+
+/**
+ * Table headers for the user report (courses for one user).
+ *
+ * @return array
+ */
+function local_timespent_report_user_header() {
+    return [
+        ['name' => '#', 'key' => '#'],
+        ['name' => get_string('course'), 'key' => 'course'],
         ['name' => get_string('total_time_online', 'local_timespent'), 'key' => 'total_time_online'],
         ['name' => get_string('last_session_end', 'local_timespent'), 'key' => 'last_session_end'],
     ];
@@ -747,14 +827,375 @@ function local_timespent_get_report_users(
  *
  * @param int $courseid
  * @param \stdClass $user
+ * @param bool $recalculate When true, refresh from logstore if TTL expired.
  * @return array{fullname: string, duration: string, lastsessionlogout: string}
  */
-function local_timespent_prepare_user_report_data(int $courseid, \stdClass $user): array {
-    $details = local_timespent_build_new_user_sessions((object) ['id' => $courseid], $user->id, 0, true);
+function local_timespent_prepare_user_report_data(int $courseid, \stdClass $user, bool $recalculate = true): array {
+    if ($recalculate) {
+        $details = local_timespent_build_new_user_sessions((object) ['id' => $courseid], $user->id, 0, true);
+    } else {
+        $details = local_timespent_get_stored_user_summary($courseid, (int) $user->id, true);
+    }
     return [
         'fullname' => fullname($user),
         'duration' => $details['duration'],
         'lastsessionlogout' => $details['lastsessionlogout'],
+    ];
+}
+
+/**
+ * Read stored aggregate + open-session progress without scanning logstore.
+ *
+ * Used by export so large downloads stay cheap.
+ *
+ * @param int $courseid
+ * @param int $userid
+ * @param int|bool $formatted
+ * @return array duration and lastsessionlogout keys
+ */
+function local_timespent_get_stored_user_summary(int $courseid, int $userid, $formatted = true): array {
+    global $DB;
+
+    $useraggr = $DB->get_record('local_timespent_aggregate', [
+        'register' => $courseid,
+        'userid' => $userid,
+        'grandtotal' => 1,
+    ]);
+    $progress = local_timespent_get_progress($courseid, $userid);
+
+    return local_timespent_format_summary_result($useraggr, $formatted, $progress);
+}
+
+/**
+ * Bulk stored summaries for many users in one course (export path).
+ *
+ * @param int $courseid Course id.
+ * @param array $users User records (each with id).
+ * @return array Summaries keyed by userid (fullname, duration, lastsessionlogout).
+ */
+function local_timespent_get_stored_user_summaries_for_course(int $courseid, array $users): array {
+    global $DB;
+
+    if (!$users) {
+        return [];
+    }
+
+    $userids = [];
+    foreach ($users as $user) {
+        $userid = (int) $user->id;
+        if ($userid > 0) {
+            $userids[$userid] = $userid;
+        }
+    }
+    if (!$userids) {
+        return [];
+    }
+
+    $userids = array_values($userids);
+    [$insql, $params] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED, 'uid');
+    $params['courseid'] = $courseid;
+    $params['grandtotal'] = 1;
+
+    $aggregates = $DB->get_records_sql(
+        "SELECT userid, duration, lastsessionlogout
+           FROM {local_timespent_aggregate}
+          WHERE register = :courseid AND grandtotal = :grandtotal AND userid $insql",
+        $params
+    );
+
+    [$pinsql, $pparams] = $DB->get_in_or_equal($userids, SQL_PARAMS_NAMED, 'puid');
+    $pparams['pcourseid'] = $courseid;
+    $progressrows = $DB->get_records_sql(
+        "SELECT userid, sessionstart, lastlogtime
+           FROM {local_timespent_progress}
+          WHERE register = :pcourseid AND userid $pinsql",
+        $pparams
+    );
+
+    $summaries = [];
+    foreach ($users as $user) {
+        $userid = (int) $user->id;
+        $aggr = $aggregates[$userid] ?? false;
+        $progress = $progressrows[$userid] ?? null;
+        $details = local_timespent_format_summary_result($aggr, true, $progress);
+        $summaries[$userid] = [
+            'fullname' => fullname($user),
+            'duration' => $details['duration'],
+            'lastsessionlogout' => $details['lastsessionlogout'],
+        ];
+    }
+    return $summaries;
+}
+
+/**
+ * Bulk stored summaries for one user across many courses (export path).
+ *
+ * @param int $userid User id.
+ * @param array $courses Course records (each with id).
+ * @return array Summaries keyed by course id (duration, lastsessionlogout).
+ */
+function local_timespent_get_stored_course_summaries_for_user(int $userid, array $courses): array {
+    global $DB;
+
+    if (!$courses) {
+        return [];
+    }
+
+    $courseids = [];
+    foreach ($courses as $course) {
+        $courseid = (int) $course->id;
+        if ($courseid > 0) {
+            $courseids[$courseid] = $courseid;
+        }
+    }
+    if (!$courseids) {
+        return [];
+    }
+
+    $courseids = array_values($courseids);
+    [$insql, $params] = $DB->get_in_or_equal($courseids, SQL_PARAMS_NAMED, 'cid');
+    $params['userid'] = $userid;
+    $params['grandtotal'] = 1;
+
+    $aggregates = $DB->get_records_sql(
+        "SELECT register, duration, lastsessionlogout
+           FROM {local_timespent_aggregate}
+          WHERE userid = :userid AND grandtotal = :grandtotal AND register $insql",
+        $params
+    );
+
+    [$pinsql, $pparams] = $DB->get_in_or_equal($courseids, SQL_PARAMS_NAMED, 'pcid');
+    $pparams['puserid'] = $userid;
+    $progressrows = $DB->get_records_sql(
+        "SELECT register, sessionstart, lastlogtime
+           FROM {local_timespent_progress}
+          WHERE userid = :puserid AND register $pinsql",
+        $pparams
+    );
+
+    $summaries = [];
+    foreach ($courses as $course) {
+        $courseid = (int) $course->id;
+        $aggr = $aggregates[$courseid] ?? false;
+        $progress = $progressrows[$courseid] ?? null;
+        $details = local_timespent_format_summary_result($aggr, true, $progress);
+        $summaries[$courseid] = [
+            'duration' => $details['duration'],
+            'lastsessionlogout' => $details['lastsessionlogout'],
+        ];
+    }
+    return $summaries;
+}
+
+/**
+ * Search site courses for the course report picker (limited, never full dump).
+ *
+ * Empty query returns the first alphabetically ordered page for browse-on-focus.
+ * Hidden courses are excluded unless the viewer can view hidden courses.
+ *
+ * @param string $query
+ * @param int $limit
+ * @return array<int, array{id: int, fullname: string}>
+ */
+function local_timespent_search_report_courses(string $query, int $limit = 25): array {
+    global $DB;
+
+    $query = trim($query);
+    $limit = max(1, min(50, $limit));
+
+    $params = [
+        'siteid' => SITEID,
+    ];
+    $where = 'c.id <> :siteid AND c.category > 0';
+
+    $canviewhidden = has_capability('moodle/course:viewhiddencourses', context_system::instance());
+    if (!$canviewhidden) {
+        $where .= ' AND c.visible = :visible';
+        $params['visible'] = 1;
+    }
+
+    if ($query !== '') {
+        $likesql = $DB->sql_like('c.fullname', ':q1', false)
+            . ' OR ' . $DB->sql_like('c.shortname', ':q2', false);
+        $where .= " AND ($likesql)";
+        $params['q1'] = '%' . $DB->sql_like_escape($query) . '%';
+        $params['q2'] = $params['q1'];
+    }
+
+    $sql = "SELECT c.id, c.fullname, c.shortname
+              FROM {course} c
+             WHERE $where
+          ORDER BY c.fullname ASC";
+
+    $courses = $DB->get_records_sql($sql, $params, 0, $limit);
+    $results = [];
+    foreach ($courses as $course) {
+        $results[] = [
+            'id' => (int) $course->id,
+            'fullname' => format_string($course->fullname),
+        ];
+    }
+    return $results;
+}
+
+/**
+ * Search site users for the user report picker (limited, never full dump).
+ *
+ * Empty query returns the first alphabetically ordered page for browse-on-focus.
+ * Matches name fields only (not email/username).
+ *
+ * @param string $query
+ * @param int $limit
+ * @return array<int, array{id: int, fullname: string}>
+ */
+function local_timespent_search_report_users(string $query, int $limit = 25): array {
+    global $DB, $CFG;
+
+    $query = trim($query);
+    $limit = max(1, min(50, $limit));
+    $guestid = (int) $CFG->siteguest;
+    $usernamefields = \core_user\fields::for_name()->get_sql('u', false, '', '', false);
+
+    $params = [
+        'deleted' => 0,
+        'suspended' => 0,
+        'guestid' => $guestid,
+    ];
+    $where = 'u.deleted = :deleted AND u.suspended = :suspended AND u.id <> :guestid';
+
+    if ($query !== '') {
+        $likesql = $DB->sql_like('u.firstname', ':q1', false)
+            . ' OR ' . $DB->sql_like('u.lastname', ':q2', false)
+            . ' OR ' . $DB->sql_like($DB->sql_fullname('u.firstname', 'u.lastname'), ':q3', false)
+            . ' OR ' . $DB->sql_like($DB->sql_fullname('u.lastname', 'u.firstname'), ':q4', false);
+        $where .= " AND ($likesql)";
+        $params['q1'] = '%' . $DB->sql_like_escape($query) . '%';
+        $params['q2'] = $params['q1'];
+        $params['q3'] = $params['q1'];
+        $params['q4'] = $params['q1'];
+    }
+
+    $sql = "SELECT u.id, {$usernamefields->selects}
+              FROM {user} u
+             WHERE $where
+          ORDER BY u.lastname ASC, u.firstname ASC";
+
+    $users = $DB->get_records_sql($sql, $params, 0, $limit);
+    $results = [];
+    foreach ($users as $user) {
+        $results[] = [
+            'id' => (int) $user->id,
+            'fullname' => fullname($user),
+        ];
+    }
+    return $results;
+}
+
+/**
+ * Enrolled courses for one user, with optional course-name search.
+ *
+ * @param int $userid
+ * @param string $searchdata
+ * @param int $limitfrom
+ * @param int $limitnum Zero means no limit.
+ * @return array{courses: array, total: int}
+ */
+function local_timespent_get_report_user_courses(
+    int $userid,
+    string $searchdata = '',
+    int $limitfrom = 0,
+    int $limitnum = 0
+): array {
+    if ($userid <= 0) {
+        return ['courses' => [], 'total' => 0];
+    }
+
+    $courses = enrol_get_users_courses($userid, true, 'id,fullname,shortname');
+    $filtered = [];
+    $search = core_text::strtolower(trim($searchdata));
+    foreach ($courses as $course) {
+        if ((int) $course->id === (int) SITEID) {
+            continue;
+        }
+        if ($search !== '') {
+            $fullname = core_text::strtolower($course->fullname . ' ' . $course->shortname);
+            if (core_text::strpos($fullname, $search) === false) {
+                continue;
+            }
+        }
+        $filtered[] = $course;
+    }
+
+    usort($filtered, static function ($a, $b) {
+        return strcasecmp($a->fullname, $b->fullname);
+    });
+
+    $total = count($filtered);
+    if ($limitnum > 0) {
+        $filtered = array_slice($filtered, $limitfrom, $limitnum);
+    }
+
+    return ['courses' => $filtered, 'total' => $total];
+}
+
+/**
+ * Build paginated user report payload (courses for one user).
+ *
+ * @param int $userid
+ * @param string $searchdata Optional course name filter
+ * @param int $page 1-based page number
+ * @param int $perpage
+ * @return array
+ */
+function local_timespent_get_user_report_data(
+    int $userid,
+    string $searchdata = '',
+    int $page = 1,
+    int $perpage = 10
+): array {
+    global $DB;
+
+    if (!in_array($perpage, [10, 25, 50, 100], true)) {
+        $perpage = 10;
+    }
+    $page = max(1, $page);
+    $start = ($page - 1) * $perpage;
+    $rows = [];
+
+    if ($userid <= 0 || isguestuser($userid)) {
+        return [
+            'reports' => [],
+            'total' => 0,
+            'strarfrom' => 0,
+            'limitto' => 0,
+        ];
+    }
+
+    $user = $DB->get_record('user', ['id' => $userid, 'deleted' => 0], '*', MUST_EXIST);
+    $report = local_timespent_get_report_user_courses($userid, $searchdata, $start, $perpage);
+    $i = $report['total'] ? ($start + 1) : 0;
+    foreach ($report['courses'] as $course) {
+        $details = local_timespent_prepare_user_report_data((int) $course->id, $user);
+        $courseurl = (new moodle_url('/course/view.php', ['id' => $course->id]))->out(false);
+        $rows[] = [
+            'rownumber' => $i,
+            'courseid' => (int) $course->id,
+            'coursename' => format_string($course->fullname),
+            'courseurl' => $courseurl,
+            'duration' => $details['duration'],
+            'lastsessionlogout' => strip_tags($details['lastsessionlogout']),
+        ];
+        $i++;
+    }
+
+    $limitto = min($start + $perpage, $report['total']);
+    $strarfrom = $report['total'] ? ($start + 1) : 0;
+
+    return [
+        'reports' => $rows,
+        'total' => $report['total'],
+        'strarfrom' => $strarfrom,
+        'limitto' => $limitto,
     ];
 }
 
@@ -823,10 +1264,11 @@ function local_timespent_get_index_report_data(
  * @return string
  */
 function local_timespent_clean_export_data($data) {
-    $cleaneddata = str_replace('=', "'='", $data);
-    $cleaneddata = str_replace('+', "'+'", $cleaneddata);
-    $cleaneddata = str_replace('-', "'-'", $cleaneddata);
-    $cleaneddata = str_replace('@', "'@'", $cleaneddata);
+    $cleaneddata = (string) $data;
+    // Prefix values that spreadsheet apps treat as formulas.
+    if ($cleaneddata !== '' && preg_match('/^[\t\r\n =+\-@]/', $cleaneddata)) {
+        $cleaneddata = "'" . $cleaneddata;
+    }
     return mb_convert_encoding($cleaneddata, 'UTF-8', 'UTF-8');
 }
 

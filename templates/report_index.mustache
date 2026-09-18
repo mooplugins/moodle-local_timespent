@@ -13,10 +13,11 @@
     Example context (json):
     {
         "downloadajaxurl": "https://example.com/local/timespent/ajax/download_index.php",
-        "currentuserid": 2,
         "loadinggif": "https://example.com/pix/i/loading.gif",
         "sesskey": "abc123",
         "search_placeholder": "Search a record",
+        "searchcourse_placeholder": "Search courses",
+        "searchuser_placeholder": "Search users",
         "search_go_label": "Go",
         "exportlabel": "Export",
         "exportcsv": "CSV",
@@ -24,79 +25,123 @@
         "recordsperpage": "Records per page",
         "previouslabel": "Previous",
         "nextlabel": "Next",
-        "selectcourseprompt": "Select a course to load the report.",
+        "selectcourseprompt": "Search and select a course to load the report.",
+        "selectuserprompt": "Type at least 2 letters to search and select a user.",
         "nodataavailable": "No data available in table",
+        "nousersfound": "No users found",
+        "nocoursesfound": "No courses found",
+        "clearselection": "Clear selection",
         "showingrecordsformat": "Showing %%FROM%% - %%TO%% of %%TOTAL%%",
         "colcount": 4,
-        "courses": [
-            {"id": 0, "fullname": "Select course"},
-            {"id": 2, "fullname": "Sample course"}
-        ],
-        "tableheader": [
-            {"name": "#"},
-            {"name": "Name"},
-            {"name": "Total time online"},
-            {"name": "Last session end"}
-        ]
+        "reportmode_course": "By course",
+        "reportmode_user": "By user",
+        "selectuserlabel": "Select user",
+        "selectcourselabel": "Select course",
+        "tableheader": [{"name": "#"}, {"name": "Name"}],
+        "usertableheader": [{"name": "#"}, {"name": "Course"}]
     }
 }}
 <div class="container-fluid local-timespent-report" data-region="timespent-report"
     data-nodata="{{nodataavailable}}" data-colcount="{{colcount}}"
-    data-showingrecords="{{showingrecordsformat}}">
+    data-showingrecords="{{showingrecordsformat}}"
+    data-selectcourseprompt="{{selectcourseprompt}}"
+    data-selectuserprompt="{{selectuserprompt}}"
+    data-search-record="{{search_placeholder}}"
+    data-search-user="{{searchuser_placeholder}}"
+    data-search-course="{{searchcourse_placeholder}}"
+    data-selectuserlabel="{{selectuserlabel}}"
+    data-selectcourselabel="{{selectcourselabel}}"
+    data-nousersfound="{{nousersfound}}"
+    data-nocoursesfound="{{nocoursesfound}}"
+    data-clearselection="{{clearselection}}">
     <div class="tablefilters">
         <input type="hidden" name="downloadajaxurl" id="downloadajaxurl" value="{{{downloadajaxurl}}}">
-        <input type="hidden" name="currentuserid" id="currentuserid" value="{{currentuserid}}">
         <input type="hidden" id="timespent-sesskey" value="{{sesskey}}">
         <input type="hidden" id="pagenumber" name="pagenumber" value="1">
+        <input type="hidden" id="reportmode" value="course">
+        <script type="application/json" id="timespent-course-headers">{{{tableheaderjson}}}</script>
+        <script type="application/json" id="timespent-user-headers">{{{usertableheaderjson}}}</script>
     </div>
 
     <div class="table-div">
-        <div id="ajaxloading" class="ajaxloading">
-            <img src="{{{loadinggif}}}" alt="{{#str}}loading, local_timespent{{/str}}">
+        <div id="ajaxloading" class="ajaxloading d-flex align-items-center gap-2 mb-2" hidden>
+            {{> core/loading }}
+            <span class="text-muted">{{#str}}loading, local_timespent{{/str}}</span>
         </div>
 
         <div class="headerinfo">
-            <div class="left">
-                <div>
-                    <select id="courseid" class="form-select me-2"
-                        aria-label="{{#str}}select_course, local_timespent{{/str}}">
-                        {{#courses}}
-                            <option value="{{id}}">{{fullname}}</option>
-                        {{/courses}}
-                    </select>
-                </div>
-                <div class="searchbox d-flex align-items-center">
-                    <label for="searchdata" class="visually-hidden">{{search_placeholder}}</label>
-                    <input type="search" id="searchdata" class="form-control"
-                        placeholder="{{search_placeholder}}" aria-label="{{search_placeholder}}">
-                    <button type="button" class="btn btn-secondary" id="btnsearch">{{search_go_label}}</button>
-                </div>
-            </div>
-            <div class="right">
-                <div class="timespent-tables-info">
-                    <div class="dropdown">
-                        <button class="btn btn-secondary timespent-export" type="button"
+            <div class="timespent-toolbar">
+                <div class="timespent-toolbar-row timespent-toolbar-modes">
+                    <div class="btn-group" role="group" aria-label="{{#str}}reportmode, local_timespent{{/str}}">
+                        <button type="button" class="btn btn-primary" data-reportmode="course"
+                            aria-pressed="true" id="timespent-mode-course">{{reportmode_course}}</button>
+                        <button type="button" class="btn btn-outline-secondary" data-reportmode="user"
+                            aria-pressed="false" id="timespent-mode-user">{{reportmode_user}}</button>
+                    </div>
+                    <div class="dropdown timespent-export-wrap">
+                        <button class="btn btn-secondary dropdown-toggle timespent-export" type="button"
                             data-bs-toggle="dropdown" aria-expanded="false" id="timespent-export">
                             {{exportlabel}}
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end" id="dataexport"
                             aria-labelledby="timespent-export">
-                            <li data-export="excel"><span class="dropdown-item">{{exportexcel}}</span></li>
-                            <li data-export="csv"><span class="dropdown-item">{{exportcsv}}</span></li>
+                            <li><button type="button" class="dropdown-item" data-export="excel">{{exportexcel}}</button></li>
+                            <li><button type="button" class="dropdown-item" data-export="csv">{{exportcsv}}</button></li>
                         </ul>
+                    </div>
+                </div>
+
+                <div class="timespent-toolbar-row timespent-toolbar-filters">
+                    <div class="timespent-entity-picker timespent-course-filter" data-region="course-filter"
+                        data-picker="course">
+                        <label for="course-picker-input" class="visually-hidden">{{selectcourselabel}}</label>
+                        <input type="hidden" id="courseid" name="courseid" value="0">
+                        <div class="input-group timespent-picker-control">
+                            <input type="text" id="course-picker-input" class="form-control timespent-picker-input"
+                                placeholder="{{searchcourse_placeholder}}" autocomplete="off"
+                                aria-autocomplete="list" aria-controls="course-picker-results"
+                                aria-expanded="false" aria-label="{{searchcourse_placeholder}}">
+                            <button type="button" class="btn btn-outline-secondary timespent-picker-clear d-none"
+                                data-clear="course" aria-label="{{clearselection}}">&times;</button>
+                        </div>
+                        <ul id="course-picker-results" class="timespent-picker-results list-unstyled d-none"
+                            role="listbox" aria-label="{{selectcourselabel}}"></ul>
+                    </div>
+
+                    <div class="timespent-entity-picker timespent-user-filter d-none" data-region="user-filter"
+                        data-picker="user">
+                        <label for="user-picker-input" class="visually-hidden">{{selectuserlabel}}</label>
+                        <input type="hidden" id="reportuserid" name="reportuserid" value="0">
+                        <div class="input-group timespent-picker-control">
+                            <input type="text" id="user-picker-input" class="form-control timespent-picker-input"
+                                placeholder="{{searchuser_placeholder}}" autocomplete="off"
+                                aria-autocomplete="list" aria-controls="user-picker-results"
+                                aria-expanded="false" aria-label="{{searchuser_placeholder}}">
+                            <button type="button" class="btn btn-outline-secondary timespent-picker-clear d-none"
+                                data-clear="user" aria-label="{{clearselection}}">&times;</button>
+                        </div>
+                        <ul id="user-picker-results" class="timespent-picker-results list-unstyled d-none"
+                            role="listbox" aria-label="{{selectuserlabel}}"></ul>
+                    </div>
+
+                    <div class="input-group timespent-search-group">
+                        <label for="searchdata" class="visually-hidden">{{search_placeholder}}</label>
+                        <input type="search" id="searchdata" class="form-control"
+                            placeholder="{{search_placeholder}}" aria-label="{{search_placeholder}}">
+                        <button type="button" class="btn btn-secondary" id="btnsearch">{{search_go_label}}</button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div id="timespent-empty" class="alert alert-info mb-3">{{selectcourseprompt}}</div>
+        <div id="timespent-empty" class="alert alert-info mb-3" role="status">{{selectcourseprompt}}</div>
 
         <div class="report_table_wrapper">
             <table id="timespent-index-table" class="table generaltable table-striped table-hover w-100">
                 <thead>
-                    <tr>
+                    <tr id="timespent-table-head-row">
                         {{#tableheader}}
-                            <th>{{name}}</th>
+                            <th scope="col">{{name}}</th>
                         {{/tableheader}}
                     </tr>
                 </thead>
@@ -105,7 +150,8 @@
         </div>
 
         <div class="footerinfo">
-            <div class="left">{{recordsperpage}}
+            <div class="left">
+                <label for="rec_per_page" class="me-1 mb-0">{{recordsperpage}}</label>
                 <select name="rec_per_page" id="rec_per_page" class="form-select d-inline-block w-auto">
                     <option value="10">10</option>
                     <option value="25">25</option>

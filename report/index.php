@@ -35,29 +35,8 @@ $PAGE->set_heading($heading);
 $PAGE->set_title($heading);
 $PAGE->add_body_class('limitedwidth');
 
-$courses = [
-    ['id' => 0, 'fullname' => get_string('select_course', 'local_timespent')],
-];
-foreach (get_courses() as $course) {
-    if ((int) $course->id === (int) SITEID || (int) $course->category === 0) {
-        continue;
-    }
-    $courses[] = [
-        'id' => (int) $course->id,
-        'fullname' => format_string($course->fullname),
-    ];
-}
-usort($courses, static function ($a, $b) {
-    if ((int) $a['id'] === 0) {
-        return -1;
-    }
-    if ((int) $b['id'] === 0) {
-        return 1;
-    }
-    return strcasecmp($a['fullname'], $b['fullname']);
-});
-
 $tableheader = local_timespent_report_index_header();
+$usertableheader = local_timespent_report_user_header();
 $loadinggifurl = $OUTPUT->image_url('i/loading', 'core')->out(false);
 $showingrecordsformat = get_string('showingrecords', 'local_timespent', (object) [
     'from' => '%%FROM%%',
@@ -67,14 +46,26 @@ $showingrecordsformat = get_string('showingrecords', 'local_timespent', (object)
 
 $downloadurl = (new moodle_url('/local/timespent/ajax/download_index.php'))->out(false);
 
+$headerjson = array_map(static function ($h) {
+    return ['name' => $h['name']];
+}, $tableheader);
+$userheaderjson = array_map(static function ($h) {
+    return ['name' => $h['name']];
+}, $usertableheader);
+$jsonflags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
+
 $data = [
     'downloadajaxurl' => $downloadurl,
     'currentuserid' => $USER->id,
     'loadinggif' => $loadinggifurl,
-    'courses' => $courses,
     'tableheader' => $tableheader,
+    'usertableheader' => $usertableheader,
+    'tableheaderjson' => json_encode($headerjson, $jsonflags),
+    'usertableheaderjson' => json_encode($userheaderjson, $jsonflags),
     'sesskey' => sesskey(),
     'search_placeholder' => get_string('searchplaceholder', 'local_timespent'),
+    'searchuser_placeholder' => get_string('searchuserplaceholder', 'local_timespent'),
+    'searchcourse_placeholder' => get_string('searchcourseplaceholder', 'local_timespent'),
     'search_go_label' => get_string('search', 'local_timespent'),
     'exportlabel' => get_string('export', 'local_timespent'),
     'exportcsv' => get_string('exportcsv', 'local_timespent'),
@@ -83,9 +74,17 @@ $data = [
     'previouslabel' => get_string('previous', 'local_timespent'),
     'nextlabel' => get_string('next', 'local_timespent'),
     'selectcourseprompt' => get_string('selectcourseprompt', 'local_timespent'),
+    'selectuserprompt' => get_string('selectuserprompt', 'local_timespent'),
     'nodataavailable' => get_string('nodataavailable', 'local_timespent'),
+    'nousersfound' => get_string('nousersfound', 'local_timespent'),
+    'nocoursesfound' => get_string('nocoursesfound', 'local_timespent'),
     'showingrecordsformat' => $showingrecordsformat,
     'colcount' => count($tableheader),
+    'reportmode_course' => get_string('reportmode_course', 'local_timespent'),
+    'reportmode_user' => get_string('reportmode_user', 'local_timespent'),
+    'selectuserlabel' => get_string('select_user', 'local_timespent'),
+    'selectcourselabel' => get_string('select_course', 'local_timespent'),
+    'clearselection' => get_string('clearselection', 'local_timespent'),
 ];
 
 $PAGE->requires->js_call_amd('local_timespent/report', 'init', [[
@@ -94,6 +93,16 @@ $PAGE->requires->js_call_amd('local_timespent/report', 'init', [[
     'nodata' => get_string('nodataavailable', 'local_timespent'),
     'showingrecords' => $showingrecordsformat,
     'colcount' => count($tableheader),
+    'selectcourseprompt' => get_string('selectcourseprompt', 'local_timespent'),
+    'selectuserprompt' => get_string('selectuserprompt', 'local_timespent'),
+    'searchRecord' => get_string('searchplaceholder', 'local_timespent'),
+    'searchUser' => get_string('searchuserplaceholder', 'local_timespent'),
+    'searchCourse' => get_string('searchcourseplaceholder', 'local_timespent'),
+    'selectuserlabel' => get_string('select_user', 'local_timespent'),
+    'selectcourselabel' => get_string('select_course', 'local_timespent'),
+    'nousersfound' => get_string('nousersfound', 'local_timespent'),
+    'nocoursesfound' => get_string('nocoursesfound', 'local_timespent'),
+    'clearselection' => get_string('clearselection', 'local_timespent'),
 ]]);
 
 echo $OUTPUT->header();

@@ -100,5 +100,45 @@ function xmldb_local_timespent_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026090900, 'local', 'timespent');
     }
 
+    if ($oldversion < 2026091700) {
+        // No schema changes — sessions close on logout and open sessions are reported live.
+        upgrade_plugin_savepoint(true, 2026091700, 'local', 'timespent');
+    }
+
+    if ($oldversion < 2026091800) {
+        // User report mode (courses for a selected user) and related external services.
+        upgrade_plugin_savepoint(true, 2026091800, 'local', 'timespent');
+    }
+
+    if ($oldversion < 2026091801) {
+        // Report UI uses Moodle autocomplete and disables selectors while loading.
+        upgrade_plugin_savepoint(true, 2026091801, 'local', 'timespent');
+    }
+
+    if ($oldversion < 2026091802) {
+        // AJAX typeahead course/user pickers (no full list preload).
+        upgrade_plugin_savepoint(true, 2026091802, 'local', 'timespent');
+    }
+
+    if ($oldversion < 2026091803) {
+        // Harden report access defaults and search/export sanitisation.
+        update_capabilities('local_timespent');
+        upgrade_plugin_savepoint(true, 2026091803, 'local', 'timespent');
+    }
+
+    if ($oldversion < 2026091804) {
+        // Ensure coursecreator no longer gets viewreport by default from older installs.
+        update_capabilities('local_timespent');
+        foreach (get_archetype_roles('coursecreator') as $coursecreator) {
+            unassign_capability('local/timespent:viewreport', $coursecreator->id);
+        }
+        upgrade_plugin_savepoint(true, 2026091804, 'local', 'timespent');
+    }
+
+    if ($oldversion < 2026091805) {
+        // Export uses stored aggregates only (no per-row logstore rebuild).
+        upgrade_plugin_savepoint(true, 2026091805, 'local', 'timespent');
+    }
+
     return true;
 }

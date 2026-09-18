@@ -1,47 +1,139 @@
 /* Styles for local_timespent report. */
 
 .local-timespent-report .headerinfo {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    gap: 1rem;
     margin-bottom: 1rem;
-    align-items: center;
 }
 
-.local-timespent-report .headerinfo .left,
-.local-timespent-report .headerinfo .right {
+.local-timespent-report .timespent-toolbar {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     gap: 0.75rem;
-    align-items: center;
 }
 
-.local-timespent-report .headerinfo .left > div {
+.local-timespent-report .timespent-toolbar-row {
     display: flex;
+    width: 100%;
     align-items: center;
+    gap: 0.75rem;
 }
 
-.local-timespent-report #courseid {
-    min-width: 16rem;
+/* Row 1: mode buttons left, export right */
+.local-timespent-report .timespent-toolbar-modes {
+    justify-content: space-between;
 }
 
-.local-timespent-report .searchbox {
-    gap: 0.5rem;
+/* Row 2: course/user picker left, search+Go right */
+.local-timespent-report .timespent-toolbar-filters {
+    justify-content: space-between;
 }
 
-.local-timespent-report .searchbox .form-control {
-    min-width: 12rem;
+.local-timespent-report .timespent-entity-picker {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 28rem;
 }
 
-.local-timespent-report #ajaxloading {
+.local-timespent-report .timespent-picker-control {
+    /* Match Moodle/Bootstrap form-select outer radius */
+    --ts-radius: var(--bs-border-radius, 0.5rem);
+}
+
+.local-timespent-report .timespent-picker-control > .form-control {
+    border-top-left-radius: var(--ts-radius) !important;
+    border-bottom-left-radius: var(--ts-radius) !important;
+    border-top-right-radius: var(--ts-radius) !important;
+    border-bottom-right-radius: var(--ts-radius) !important;
+}
+
+/* Hide native clear so only our selection clear button shows. */
+.local-timespent-report .timespent-picker-input::-webkit-search-cancel-button,
+.local-timespent-report .timespent-picker-input::-webkit-clear-button {
+    -webkit-appearance: none;
+    appearance: none;
     display: none;
-    margin-bottom: 0.75rem;
 }
 
-.local-timespent-report #ajaxloading img {
-    height: 24px;
-    width: 24px;
+.local-timespent-report .timespent-picker-control.has-selection > .form-control {
+    border-top-right-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+}
+
+.local-timespent-report .timespent-picker-control > .timespent-picker-clear {
+    border-top-right-radius: var(--ts-radius) !important;
+    border-bottom-right-radius: var(--ts-radius) !important;
+}
+
+.local-timespent-report .timespent-picker-results {
+    position: absolute;
+    z-index: 1050;
+    top: calc(100% + 0.15rem);
+    left: 0;
+    right: 0;
+    max-height: 16rem;
+    overflow-y: auto;
+    margin: 0;
+    padding: 0.25rem 0;
+    background: var(--bs-body-bg, #fff);
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: var(--bs-border-radius, 0.5rem);
+    box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.08);
+}
+
+.local-timespent-report .timespent-picker-results .timespent-picker-option {
+    display: block;
+    width: 100%;
+    padding: 0.45rem 0.75rem;
+    border: 0;
+    background: transparent;
+    text-align: left;
+    color: inherit;
+    cursor: pointer;
+}
+
+.local-timespent-report .timespent-picker-results .timespent-picker-option:hover,
+.local-timespent-report .timespent-picker-results .timespent-picker-option:focus,
+.local-timespent-report .timespent-picker-results .timespent-picker-option.is-active {
+    background: var(--bs-primary-bg-subtle, #e7f1ff);
+    outline: none;
+}
+
+.local-timespent-report .timespent-picker-results .timespent-picker-empty {
+    padding: 0.5rem 0.75rem;
+    color: var(--bs-secondary-color, #6c757d);
+    font-size: 0.875rem;
+}
+
+.local-timespent-report .timespent-search-group {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 28rem;
+    --ts-radius: var(--bs-border-radius, 0.5rem);
+}
+
+.local-timespent-report .timespent-controls-disabled {
+    opacity: 0.65;
+    pointer-events: none;
+}
+
+/* Search + Go: same outer radius as form-select, square join in the middle */
+.local-timespent-report .timespent-search-group > .form-control {
+    border-top-left-radius: var(--ts-radius) !important;
+    border-bottom-left-radius: var(--ts-radius) !important;
+    border-top-right-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+}
+
+.local-timespent-report .timespent-search-group > .btn {
+    border-top-left-radius: 0 !important;
+    border-bottom-left-radius: 0 !important;
+    border-top-right-radius: var(--ts-radius) !important;
+    border-bottom-right-radius: var(--ts-radius) !important;
+    margin-left: -1px;
+}
+
+.local-timespent-report #ajaxloading[hidden] {
+    display: none !important;
 }
 
 .local-timespent-report .footerinfo {
@@ -82,22 +174,18 @@
 }
 
 @media (max-width: 767.98px) {
-    .local-timespent-report .headerinfo,
-    .local-timespent-report .footerinfo,
-    .local-timespent-report .headerinfo .left,
-    .local-timespent-report .headerinfo .right {
+    .local-timespent-report .timespent-toolbar-modes,
+    .local-timespent-report .timespent-toolbar-filters {
         flex-direction: column;
         align-items: stretch;
     }
 
-    .local-timespent-report #courseid,
-    .local-timespent-report .searchbox {
-        min-width: 0;
+    .local-timespent-report .timespent-toolbar-modes .btn-group,
+    .local-timespent-report .timespent-export-wrap,
+    .local-timespent-report .timespent-export-wrap .btn,
+    .local-timespent-report .timespent-entity-picker,
+    .local-timespent-report .timespent-search-group {
         width: 100%;
-    }
-
-    .local-timespent-report .searchbox .form-control {
-        flex: 1 1 auto;
-        min-width: 0;
+        max-width: none;
     }
 }

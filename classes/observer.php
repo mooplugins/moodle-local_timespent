@@ -60,4 +60,17 @@ class observer {
             (int) $event->timecreated
         );
     }
+
+    /**
+     * User logged out — close any session still open.
+     *
+     * @param \core\event\user_loggedout $event
+     * @return void
+     */
+    public static function user_loggedout(\core\event\user_loggedout $event): void {
+        local_timespent_close_user_open_sessions(
+            (int) $event->objectid,
+            (int) $event->timecreated
+        );
+    }
 }
