@@ -40,10 +40,10 @@
 }
 
 .local-timespent-report .timespent-picker-control > .form-control {
-    border-top-left-radius: var(--ts-radius) !important;
-    border-bottom-left-radius: var(--ts-radius) !important;
-    border-top-right-radius: var(--ts-radius) !important;
-    border-bottom-right-radius: var(--ts-radius) !important;
+    border-top-left-radius: var(--ts-radius);
+    border-bottom-left-radius: var(--ts-radius);
+    border-top-right-radius: var(--ts-radius);
+    border-bottom-right-radius: var(--ts-radius);
 }
 
 /* Hide native clear so only our selection clear button shows. */
@@ -55,13 +55,13 @@
 }
 
 .local-timespent-report .timespent-picker-control.has-selection > .form-control {
-    border-top-right-radius: 0 !important;
-    border-bottom-right-radius: 0 !important;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
 }
 
 .local-timespent-report .timespent-picker-control > .timespent-picker-clear {
-    border-top-right-radius: var(--ts-radius) !important;
-    border-bottom-right-radius: var(--ts-radius) !important;
+    border-top-right-radius: var(--ts-radius);
+    border-bottom-right-radius: var(--ts-radius);
 }
 
 .local-timespent-report .timespent-picker-results {
@@ -118,22 +118,22 @@
 
 /* Search + Go: same outer radius as form-select, square join in the middle */
 .local-timespent-report .timespent-search-group > .form-control {
-    border-top-left-radius: var(--ts-radius) !important;
-    border-bottom-left-radius: var(--ts-radius) !important;
-    border-top-right-radius: 0 !important;
-    border-bottom-right-radius: 0 !important;
+    border-top-left-radius: var(--ts-radius);
+    border-bottom-left-radius: var(--ts-radius);
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
 }
 
 .local-timespent-report .timespent-search-group > .btn {
-    border-top-left-radius: 0 !important;
-    border-bottom-left-radius: 0 !important;
-    border-top-right-radius: var(--ts-radius) !important;
-    border-bottom-right-radius: var(--ts-radius) !important;
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+    border-top-right-radius: var(--ts-radius);
+    border-bottom-right-radius: var(--ts-radius);
     margin-left: -1px;
 }
 
 .local-timespent-report #ajaxloading[hidden] {
-    display: none !important;
+    display: none;
 }
 
 .local-timespent-report .footerinfo {
