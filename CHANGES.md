@@ -8,6 +8,12 @@ All notable changes to the Time spent plugin are documented here.
 
 - Export reads stored aggregates/progress in bulk (no logstore rebuild per row).
 - Report table builds name links with DOM APIs (`textContent`) instead of `innerHTML`.
+- Course/user pickers both browse on focus (first 25); user search remains name-only.
+
+### Fixed
+
+- CI Mustache Lint: picker inputs include `role="combobox"`.
+- CI Grunt: AMD build is properly minified (`amd/build/report.min.js`).
 
 ## 1.3.4 - 2026-09-18
 
