@@ -137,9 +137,20 @@
     pointer-events: none;
 }
 
+/* Overlay loader on the table so filters do not shift when it appears. */
+.local-timespent-report .report_table_wrapper {
+    position: relative;
+    min-height: 3rem;
+}
+
 /* Avoid Bootstrap .d-flex !important so [hidden] can hide the loader. */
 .local-timespent-report .timespent-ajaxloading:not([hidden]) {
     display: flex;
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    background-color: rgba(255, 255, 255, 0.85);
+    pointer-events: none;
 }
 
 .local-timespent-report .footerinfo {

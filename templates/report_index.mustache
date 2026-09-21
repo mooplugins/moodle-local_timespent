@@ -64,11 +64,6 @@
     </div>
 
     <div class="table-div">
-        <div id="ajaxloading" class="ajaxloading timespent-ajaxloading align-items-center gap-2 mb-2" hidden>
-            {{> core/loading }}
-            <span class="text-muted">{{#str}}loading, local_timespent{{/str}}</span>
-        </div>
-
         <div class="headerinfo">
             <div class="timespent-toolbar">
                 <div class="timespent-toolbar-row timespent-toolbar-modes">
@@ -139,6 +134,10 @@
         <div id="timespent-empty" class="alert alert-info mb-3" role="status">{{selectcourseprompt}}</div>
 
         <div class="report_table_wrapper">
+            <div id="ajaxloading" class="ajaxloading timespent-ajaxloading align-items-center justify-content-center gap-2" hidden>
+                {{> core/loading }}
+                <span class="text-muted">{{#str}}loading, local_timespent{{/str}}</span>
+            </div>
             <table id="timespent-index-table" class="table generaltable table-striped table-hover w-100">
                 <thead>
                     <tr id="timespent-table-head-row">
