@@ -25,9 +25,8 @@
 define([
     'core/ajax',
     'core/notification',
-    'core/loadingicon',
     'core/pending'
-], function(Ajax, Notification, LoadingIcon, Pending) {
+], function(Ajax, Notification, Pending) {
     var initialized = false;
     var loading = false;
     var PICKER_LIMIT = 25;
@@ -486,16 +485,19 @@ define([
     }
 
     /**
+     * Keep Search+Go visible; placeholder stays "Search a record"
+     * (filters users in course mode, courses in user mode).
      */
     function updateSearchPlaceholder() {
         var searchEl = byId('searchdata');
+        var searchGroup = document.querySelector('.timespent-search-group');
         if (!searchEl) {
             return;
         }
-        var placeholder = config.searchRecord;
-        if (isUserMode()) {
-            placeholder = selectedUserId() > 0 ? config.searchCourse : config.searchUser;
+        if (searchGroup) {
+            searchGroup.classList.remove('d-none');
         }
+        var placeholder = config.searchRecord;
         searchEl.placeholder = placeholder;
         searchEl.setAttribute('aria-label', placeholder);
     }
@@ -707,13 +709,7 @@ define([
         }
 
         var pending = new Pending('local_timespent/report:filtertable');
-        var filterRegion = document.querySelector(
-            isUserMode() ? '[data-region="user-filter"]' : '[data-region="course-filter"]'
-        );
         setLoading(true);
-        if (filterRegion) {
-            LoadingIcon.addIconToContainerRemoveOnCompletion(filterRegion, pending);
-        }
 
         var perPageEl = byId('rec_per_page');
         var searchEl = byId('searchdata');
