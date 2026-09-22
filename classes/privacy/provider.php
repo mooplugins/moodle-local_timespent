@@ -52,12 +52,20 @@ class provider implements
             'login' => 'privacy:metadata:local_timespent_session:login',
             'logout' => 'privacy:metadata:local_timespent_session:logout',
             'duration' => 'privacy:metadata:local_timespent_session:duration',
+            'onlinesess' => 'privacy:metadata:local_timespent_session:onlinesess',
+            'refcourse' => 'privacy:metadata:local_timespent_session:refcourse',
+            'comments' => 'privacy:metadata:local_timespent_session:comments',
+            'addedbyuserid' => 'privacy:metadata:local_timespent_session:addedbyuserid',
         ], 'privacy:metadata:local_timespent_session');
 
         $collection->add_database_table('local_timespent_aggregate', [
             'register' => 'privacy:metadata:local_timespent_aggregate:register',
             'userid' => 'privacy:metadata:local_timespent_aggregate:userid',
             'duration' => 'privacy:metadata:local_timespent_aggregate:duration',
+            'onlinesess' => 'privacy:metadata:local_timespent_aggregate:onlinesess',
+            'total' => 'privacy:metadata:local_timespent_aggregate:total',
+            'grandtotal' => 'privacy:metadata:local_timespent_aggregate:grandtotal',
+            'refcourse' => 'privacy:metadata:local_timespent_aggregate:refcourse',
             'lastsessionlogout' => 'privacy:metadata:local_timespent_aggregate:lastsessionlogout',
         ], 'privacy:metadata:local_timespent_aggregate');
 

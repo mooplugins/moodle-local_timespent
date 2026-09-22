@@ -2,6 +2,23 @@
 
 All notable changes to the Time spent plugin are documented here.
 
+## 1.3.6 - 2026-09-22
+
+### Security
+
+- Course report user search matches names only (no email/username).
+- Direct `courseid` access respects hidden-course visibility (`viewhiddencourses`).
+- User report hides courses the viewer cannot see.
+- Interactive reports and export use stored aggregates only (no logstore rebuild on view).
+- Spreadsheet export capped at 10,000 rows and streamed in pages.
+- Privacy metadata declares all session/aggregate columns present in the schema.
+- Capability and report descriptions document site-wide access risk.
+- Removed legacy `ajax/get_index_report.php` endpoint.
+
+### Fixed
+
+- Named SQL placeholders in `local_timespent_calculate_last_user_online_session_logout`.
+
 ## 1.3.5 - 2026-09-18
 
 ### Changed
@@ -94,7 +111,7 @@ All notable changes to the Time spent plugin are documented here.
 ### Changed
 
 - Report page prefers stored aggregates and only recalculates when stale.
-- Legacy `ajax/get_index_report.php` kept as a thin compatibility wrapper.
+- Legacy `ajax/get_index_report.php` removed in 1.3.6 (was a thin compatibility wrapper until then).
 
 ## 1.1.5 - 2026-08-19
 
