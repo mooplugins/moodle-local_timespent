@@ -49,7 +49,7 @@ class get_index_report extends external_api {
             'courseid' => new external_value(PARAM_INT, 'Course id'),
             'page' => new external_value(PARAM_INT, '1-based page number', VALUE_DEFAULT, 1),
             'perpage' => new external_value(PARAM_INT, 'Rows per page', VALUE_DEFAULT, 10),
-            'searchdata' => new external_value(PARAM_TEXT, 'Optional name/email search', VALUE_DEFAULT, ''),
+            'searchdata' => new external_value(PARAM_TEXT, 'Optional name search', VALUE_DEFAULT, ''),
         ]);
     }
 

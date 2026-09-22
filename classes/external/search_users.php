@@ -46,7 +46,7 @@ class search_users extends external_api {
      */
     public static function execute_parameters(): external_function_parameters {
         return new external_function_parameters([
-            'query' => new external_value(PARAM_TEXT, 'Name, email, or username search'),
+            'query' => new external_value(PARAM_TEXT, 'Name search'),
             'limit' => new external_value(PARAM_INT, 'Max results', VALUE_DEFAULT, 25),
         ]);
     }

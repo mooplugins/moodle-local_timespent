@@ -30,7 +30,6 @@ require_login();
 local_timespent_require_view_report();
 require_sesskey();
 
-global $DB;
 $dataformat = required_param('dataformat', PARAM_ALPHA);
 $searchdata = optional_param('searchdata', '', PARAM_TEXT);
 $reportmode = optional_param('reportmode', 'course', PARAM_ALPHA);
@@ -58,19 +57,7 @@ if ($reportmode === 'user') {
         $columns[$header['key']] = $header['name'];
     }
     if ($userid > 0) {
-        $report = local_timespent_get_report_user_courses($userid, $searchdata);
-        $summaries = local_timespent_get_stored_course_summaries_for_user($userid, $report['courses']);
-        foreach ($report['courses'] as $course) {
-            $details = $summaries[(int) $course->id] ?? [
-                'duration' => get_string('no_session', 'local_timespent'),
-                'lastsessionlogout' => get_string('no_session', 'local_timespent'),
-            ];
-            $rows[] = [
-                'course' => local_timespent_clean_export_data(format_string($course->fullname)),
-                'total_time_online' => $details['duration'],
-                'last_session_end' => strip_tags($details['lastsessionlogout']),
-            ];
-        }
+        $rows = local_timespent_export_user_report_rows($userid, $searchdata);
     }
 } else {
     foreach (local_timespent_report_index_header() as $header) {
@@ -80,20 +67,7 @@ if ($reportmode === 'user') {
         $columns[$header['key']] = $header['name'];
     }
     if ($courseid && $courseid !== (int) SITEID) {
-        $report = local_timespent_get_report_users($courseid, $searchdata);
-        $summaries = local_timespent_get_stored_user_summaries_for_course($courseid, $report['users']);
-        foreach ($report['users'] as $user) {
-            $details = $summaries[(int) $user->id] ?? [
-                'fullname' => fullname($user),
-                'duration' => get_string('no_session', 'local_timespent'),
-                'lastsessionlogout' => get_string('no_session', 'local_timespent'),
-            ];
-            $rows[] = [
-                'name' => local_timespent_clean_export_data($details['fullname']),
-                'total_time_online' => $details['duration'],
-                'last_session_end' => strip_tags($details['lastsessionlogout']),
-            ];
-        }
+        $rows = local_timespent_export_course_report_rows($courseid, $searchdata);
     }
 }
 

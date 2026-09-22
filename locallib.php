@@ -32,6 +32,12 @@ define('LOCAL_TIMESPENT_RECALC_TTL', 300);
 /** Max log rows read per batch from logstore_standard_log. */
 define('LOCAL_TIMESPENT_LOG_BATCH', 1000);
 
+/** Soft cap on spreadsheet export rows (availability guard). */
+define('LOCAL_TIMESPENT_EXPORT_MAX_ROWS', 10000);
+
+/** Batch size when streaming export rows. */
+define('LOCAL_TIMESPENT_EXPORT_PAGE', 500);
+
 /**
  * Require permission to view the timespent report.
  *
@@ -45,6 +51,53 @@ function local_timespent_require_view_report(?context $context = null): void {
     }
 
     require_capability('local/timespent:viewreport', $context);
+}
+
+/**
+ * Whether the current user may include this course in time-spent reports.
+ *
+ * Hidden courses require moodle/course:viewhiddencourses at system context.
+ *
+ * @param \stdClass $course Course record with at least id and visible.
+ * @return bool
+ */
+function local_timespent_can_view_course_in_report(\stdClass $course): bool {
+    if ((int) $course->id === (int) SITEID) {
+        return false;
+    }
+    if (!empty($course->visible)) {
+        return true;
+    }
+    return has_capability('moodle/course:viewhiddencourses', context_system::instance());
+}
+
+/**
+ * Load a course and require it is visible to the current viewer for reporting.
+ *
+ * @param int $courseid
+ * @return \stdClass
+ * @throws \moodle_exception
+ * @throws \required_capability_exception
+ * @throws \dml_missing_record_exception
+ */
+function local_timespent_require_reportable_course(int $courseid): \stdClass {
+    global $DB;
+
+    if (!$courseid || $courseid === (int) SITEID) {
+        throw new \moodle_exception('invalidcourseid');
+    }
+
+    $course = $DB->get_record('course', ['id' => $courseid], 'id, fullname, shortname, visible', MUST_EXIST);
+    if (!local_timespent_can_view_course_in_report($course)) {
+        throw new \required_capability_exception(
+            context_system::instance(),
+            'moodle/course:viewhiddencourses',
+            'nopermissions',
+            ''
+        );
+    }
+
+    return $course;
 }
 
 /**
@@ -508,7 +561,8 @@ function local_timespent_calculate_last_user_online_session_logout($courseorregi
 
     $queryparams = ['register' => $courseorregister->id, 'userid' => $userid];
     $lastsessionend = $DB->get_field_sql(
-        'SELECT MAX(logout) FROM {local_timespent_session} WHERE register = ? AND userid = ? AND onlinesess = 1',
+        'SELECT MAX(logout) FROM {local_timespent_session}
+          WHERE register = :register AND userid = :userid AND onlinesess = 1',
         $queryparams
     );
     if ($lastsessionend === false) {
@@ -786,10 +840,11 @@ function local_timespent_get_report_users(
 
     $where = 'u.deleted = 0';
     if ($searchdata !== '') {
+        // Name fields only — do not match email/username (PII).
         $likesql = $DB->sql_like('u.firstname', ':search1', false)
             . ' OR ' . $DB->sql_like('u.lastname', ':search2', false)
-            . ' OR ' . $DB->sql_like('u.email', ':search3', false)
-            . ' OR ' . $DB->sql_like('u.username', ':search4', false);
+            . ' OR ' . $DB->sql_like($DB->sql_fullname('u.firstname', 'u.lastname'), ':search3', false)
+            . ' OR ' . $DB->sql_like($DB->sql_fullname('u.lastname', 'u.firstname'), ':search4', false);
         $where .= " AND ($likesql)";
         $params['search1'] = '%' . $DB->sql_like_escape($searchdata) . '%';
         $params['search2'] = $params['search1'];
@@ -825,12 +880,16 @@ function local_timespent_get_report_users(
 /**
  * Session totals for one user in a course.
  *
+ * Defaults to stored aggregates/progress (same as export). Pass $recalculate true
+ * only when an explicit logstore refresh is required — interactive reports must
+ * not trigger rebuilds on every page view.
+ *
  * @param int $courseid
  * @param \stdClass $user
  * @param bool $recalculate When true, refresh from logstore if TTL expired.
  * @return array{fullname: string, duration: string, lastsessionlogout: string}
  */
-function local_timespent_prepare_user_report_data(int $courseid, \stdClass $user, bool $recalculate = true): array {
+function local_timespent_prepare_user_report_data(int $courseid, \stdClass $user, bool $recalculate = false): array {
     if ($recalculate) {
         $details = local_timespent_build_new_user_sessions((object) ['id' => $courseid], $user->id, 0, true);
     } else {
@@ -1110,11 +1169,11 @@ function local_timespent_get_report_user_courses(
         return ['courses' => [], 'total' => 0];
     }
 
-    $courses = enrol_get_users_courses($userid, true, 'id,fullname,shortname');
+    $courses = enrol_get_users_courses($userid, true, 'id,fullname,shortname,visible');
     $filtered = [];
     $search = core_text::strtolower(trim($searchdata));
     foreach ($courses as $course) {
-        if ((int) $course->id === (int) SITEID) {
+        if (!local_timespent_can_view_course_in_report($course)) {
             continue;
         }
         if ($search !== '') {
@@ -1171,11 +1230,15 @@ function local_timespent_get_user_report_data(
         ];
     }
 
-    $user = $DB->get_record('user', ['id' => $userid, 'deleted' => 0], '*', MUST_EXIST);
+    $DB->get_record('user', ['id' => $userid, 'deleted' => 0], 'id', MUST_EXIST);
     $report = local_timespent_get_report_user_courses($userid, $searchdata, $start, $perpage);
+    $summaries = local_timespent_get_stored_course_summaries_for_user($userid, $report['courses']);
     $i = $report['total'] ? ($start + 1) : 0;
     foreach ($report['courses'] as $course) {
-        $details = local_timespent_prepare_user_report_data((int) $course->id, $user);
+        $details = $summaries[(int) $course->id] ?? [
+            'duration' => get_string('no_session', 'local_timespent'),
+            'lastsessionlogout' => get_string('no_session', 'local_timespent'),
+        ];
         $courseurl = (new moodle_url('/course/view.php', ['id' => $course->id]))->out(false);
         $rows[] = [
             'rownumber' => $i,
@@ -1201,6 +1264,8 @@ function local_timespent_get_user_report_data(
 
 /**
  * Build paginated report payload for external services / AJAX.
+ *
+ * Uses stored aggregates only (no per-row logstore rebuild).
  *
  * @param int $courseid
  * @param string $searchdata
@@ -1230,10 +1295,17 @@ function local_timespent_get_index_report_data(
         ];
     }
 
+    local_timespent_require_reportable_course($courseid);
+
     $report = local_timespent_get_report_users($courseid, $searchdata, $start, $perpage);
+    $summaries = local_timespent_get_stored_user_summaries_for_course($courseid, $report['users']);
     $i = $report['total'] ? ($start + 1) : 0;
     foreach ($report['users'] as $user) {
-        $details = local_timespent_prepare_user_report_data($courseid, $user);
+        $details = $summaries[(int) $user->id] ?? [
+            'fullname' => fullname($user),
+            'duration' => get_string('no_session', 'local_timespent'),
+            'lastsessionlogout' => get_string('no_session', 'local_timespent'),
+        ];
         $profileurl = (new moodle_url('/user/profile.php', ['id' => $user->id]))->out(false);
         $rows[] = [
             'rownumber' => $i,
@@ -1255,6 +1327,99 @@ function local_timespent_get_index_report_data(
         'strarfrom' => $strarfrom,
         'limitto' => $limitto,
     ];
+}
+
+/**
+ * Stream course-report export rows in pages (stored aggregates only).
+ *
+ * @param int $courseid
+ * @param string $searchdata
+ * @return \Generator<int, array<string, string>>
+ */
+function local_timespent_export_course_report_rows(int $courseid, string $searchdata = ''): \Generator {
+    local_timespent_require_reportable_course($courseid);
+
+    $probe = local_timespent_get_report_users($courseid, $searchdata, 0, 1);
+    if ($probe['total'] > LOCAL_TIMESPENT_EXPORT_MAX_ROWS) {
+        throw new \moodle_exception(
+            'exportexceedsmax',
+            'local_timespent',
+            '',
+            LOCAL_TIMESPENT_EXPORT_MAX_ROWS
+        );
+    }
+
+    $limitfrom = 0;
+    while ($limitfrom < $probe['total']) {
+        $report = local_timespent_get_report_users(
+            $courseid,
+            $searchdata,
+            $limitfrom,
+            LOCAL_TIMESPENT_EXPORT_PAGE
+        );
+        $summaries = local_timespent_get_stored_user_summaries_for_course($courseid, $report['users']);
+        foreach ($report['users'] as $user) {
+            $details = $summaries[(int) $user->id] ?? [
+                'fullname' => fullname($user),
+                'duration' => get_string('no_session', 'local_timespent'),
+                'lastsessionlogout' => get_string('no_session', 'local_timespent'),
+            ];
+            yield [
+                'name' => local_timespent_clean_export_data($details['fullname']),
+                'total_time_online' => $details['duration'],
+                'last_session_end' => strip_tags($details['lastsessionlogout']),
+            ];
+        }
+        $limitfrom += LOCAL_TIMESPENT_EXPORT_PAGE;
+        if (!$report['users']) {
+            break;
+        }
+    }
+}
+
+/**
+ * Stream user-report export rows (courses for one user; stored aggregates only).
+ *
+ * @param int $userid
+ * @param string $searchdata
+ * @return \Generator<int, array<string, string>>
+ */
+function local_timespent_export_user_report_rows(int $userid, string $searchdata = ''): \Generator {
+    $probe = local_timespent_get_report_user_courses($userid, $searchdata, 0, 1);
+    if ($probe['total'] > LOCAL_TIMESPENT_EXPORT_MAX_ROWS) {
+        throw new \moodle_exception(
+            'exportexceedsmax',
+            'local_timespent',
+            '',
+            LOCAL_TIMESPENT_EXPORT_MAX_ROWS
+        );
+    }
+
+    $limitfrom = 0;
+    while ($limitfrom < $probe['total']) {
+        $report = local_timespent_get_report_user_courses(
+            $userid,
+            $searchdata,
+            $limitfrom,
+            LOCAL_TIMESPENT_EXPORT_PAGE
+        );
+        $summaries = local_timespent_get_stored_course_summaries_for_user($userid, $report['courses']);
+        foreach ($report['courses'] as $course) {
+            $details = $summaries[(int) $course->id] ?? [
+                'duration' => get_string('no_session', 'local_timespent'),
+                'lastsessionlogout' => get_string('no_session', 'local_timespent'),
+            ];
+            yield [
+                'course' => local_timespent_clean_export_data(format_string($course->fullname)),
+                'total_time_online' => $details['duration'],
+                'last_session_end' => strip_tags($details['lastsessionlogout']),
+            ];
+        }
+        $limitfrom += LOCAL_TIMESPENT_EXPORT_PAGE;
+        if (!$report['courses']) {
+            break;
+        }
+    }
 }
 
 /**

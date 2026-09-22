@@ -40,7 +40,7 @@ Stored session and total data is covered by Moodle’s Privacy API, so your site
 
 1. Download or clone this plugin into your Moodle site as `local/timespent`.
 2. Go to **Site administration → Notifications** and complete the installation.
-3. Assign access to the Time spent report to the roles that should see it (for example managers).
+3. Assign access to the Time spent report only to trusted roles (for example managers). The `local/timespent:viewreport` capability is **site-wide** — holders can query time spent for any course or user.
 
 ## Using the report
 
@@ -49,8 +49,9 @@ After install, open the Time spent report from your site reports area (or ask yo
 ## Tips for accurate results
 
 - Learners must generate activity in the course (opening resources, activities, and so on) — sitting idle with no Moodle clicks is not counted.
-- Totals update from live course activity observers and from incremental log processing when reports are viewed.
+- Totals update from live course activity observers; the report reads stored aggregates and does not rebuild from logs on each view.
 - Keep the standard log store enabled; without course activity logs, historical sessions cannot be rebuilt.
+- Spreadsheet export is limited to 10,000 rows; narrow search filters if you hit the limit.
 
 ## License
 

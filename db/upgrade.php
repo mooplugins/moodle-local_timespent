@@ -140,5 +140,10 @@ function xmldb_local_timespent_upgrade($oldversion) {
         upgrade_plugin_savepoint(true, 2026091805, 'local', 'timespent');
     }
 
+    if ($oldversion < 2026092200) {
+        // Security hardening: privacy metadata, report visibility, export caps.
+        upgrade_plugin_savepoint(true, 2026092200, 'local', 'timespent');
+    }
+
     return true;
 }
